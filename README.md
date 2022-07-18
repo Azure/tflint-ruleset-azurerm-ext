@@ -10,22 +10,6 @@ TFLint ruleset plugin for Terraform Provider for Azure (Resource Manager)
 - TFLint v0.35+
 - Go v1.18
 
-## Installation
-
-You can install the plugin by adding a config to `.tflint.hcl` and running `tflint --init`:
-
-```hcl
-plugin "azurerm" {
-    enabled = true
-    version = "0.17.0"
-    source  = "github.com/terraform-linters/tflint-ruleset-azurerm"
-}
-```
-
-## Rules
-
-200+ rules are available. See the [documentation](docs/README.md).
-
 ## Building the plugin
 
 Clone the repository locally and run the following command:
@@ -43,17 +27,9 @@ $ make install
 Note that if you install the plugin with make install, you must omit the `version` and `source` attributes in `.tflint.hcl`:
 
 ```hcl
-plugin "azurerm" {
+plugin "azurerm-ext" {
     enabled = true
 }
-```
-
-## Add a new rule
-
-If you are interested in adding a new rule to this ruleset, you can use the generator. Run the following command:
-
-```
-$ go run ./rules/generator
 ```
 
 Follow the instructions to edit the generated files and open a new pull request.
