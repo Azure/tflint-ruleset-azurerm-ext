@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/project"
+	"log"
 	"sort"
 	"strings"
 )
@@ -40,16 +41,19 @@ func (r *AzurermArgsOrderRule) Link() string {
 	return project.ReferenceLink(r.Name())
 }
 
-// Check checks whether the arguments/attributes in a block are sorted in alphabetic order
+// Check checks whether the arguments/attributes in a block are sorted in azure doc order
 func (r *AzurermArgsOrderRule) Check(runner tflint.Runner) error {
-
 	files, _ := runner.GetFiles()
+	var arrArr []error
 	for name, file := range files {
 		if err := r.checkAzurermDocOrder(runner, name, file); err != nil {
-			return err
+			log.Printf("[ERROR] %s: %s", name, err.Error())
+			arrArr = append(arrArr, err)
 		}
 	}
-
+	if arrArr != nil {
+		return arrArr[0]
+	}
 	return nil
 }
 
@@ -84,7 +88,7 @@ func (r *AzurermArgsOrderRule) checkAzurermDocOrder(runner tflint.Runner, filena
 	return nil
 }
 
-// checkArgsAlphaOrder checks whether the arguments/attributes in a block are sorted in alphabetic order recursively
+// checkArgsAlphaOrder checks whether the arguments in a block are sorted in azure doc order recursively
 func (r *AzurermArgsOrderRule) checkArgsOrder(runner tflint.Runner,
 	blockNameTokenIndSeq []int, tokens hclsyntax.Tokens, startIndex int, lines []string, rootBlockType provider.RootBlockType) (int, string) {
 	var blockNameSeq, realArgSeq, remainArgSeq []string
@@ -145,7 +149,7 @@ func (r *AzurermArgsOrderRule) checkArgsOrder(runner tflint.Runner,
 			sortedArgsText += strings.Join(realArgText[argName], "")
 		}
 	}
-	for argName, _ := range realArgText {
+	for argName := range realArgText {
 		if _, ok := argsMap[argName]; !ok {
 			remainArgSeq = append(remainArgSeq, argName)
 		}
