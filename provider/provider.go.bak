@@ -1,0 +1,125 @@
+package provider
+
+import (
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-provider-azurerm/internal/provider"
+	"log"
+	"sort"
+)
+
+var azProvider = provider.AzureProvider()
+
+func getRootSchema(rootBlockName string, blockType RootBlockType) map[string]*schema.Schema {
+	blockNameNotValid := false
+	if blockType == Provider {
+		if rootBlockName == "azurerm" {
+			return azProvider.Schema
+		}
+		blockNameNotValid = true
+	} else if blockType == Resource {
+		if _, ok := azProvider.ResourcesMap[rootBlockName]; ok {
+			return azProvider.ResourcesMap[rootBlockName].Schema
+		}
+		blockNameNotValid = true
+	} else if blockType == DataSource {
+		if _, ok := azProvider.DataSourcesMap[rootBlockName]; ok {
+			return azProvider.DataSourcesMap[rootBlockName].Schema
+		}
+		blockNameNotValid = true
+	}
+	if blockNameNotValid {
+		log.Printf("[WARN] no such %s with block name `%s`!", blockType, rootBlockName)
+		return nil
+	}
+	log.Printf("[WARN] block type `%s` not supported!", blockType)
+	return nil
+}
+
+func GetArgSchema(blockNameSeq []string, blockType RootBlockType) map[string]*schema.Schema {
+	if blockNameSeq == nil {
+		log.Printf("[WARN] blockNameSeq is nil")
+		return nil
+	} else if len(blockNameSeq) == 0 {
+		log.Printf("[WARN] blockNameSeq is empty")
+	}
+	input := getRootSchema(blockNameSeq[0], blockType)
+	return getNestedArgSchema(blockNameSeq, input, 1)
+}
+
+func getNestedArgSchema(blockNameSeq []string, input map[string]*schema.Schema, index int) map[string]*schema.Schema {
+	if blockNameSeq == nil {
+		log.Printf("[WARN] blockNameSeq is nil")
+		return nil
+	} else if index > len(blockNameSeq) {
+		return nil
+	} else if index == len(blockNameSeq) {
+		return input
+	} else {
+		field, ok := input[blockNameSeq[index]]
+		if !ok {
+			log.Printf("[WARN] `%s` is not the inner block of %s", blockNameSeq[index], blockNameSeq[:index])
+			return nil
+		}
+		innerSchema := getInnerArgSchema(field)
+		if innerSchema == nil {
+			log.Printf("[WARN] innerSchema read failed for %s", blockNameSeq[:index+1])
+			return nil
+		}
+		return getNestedArgSchema(blockNameSeq, innerSchema, index+1)
+	}
+}
+
+func getInnerArgSchema(field *schema.Schema) map[string]*schema.Schema {
+	if field.Computed && !(field.Optional || field.Required) {
+		return nil
+	}
+	if field.Type != schema.TypeList && field.Type != schema.TypeSet {
+		return nil
+	}
+	if field.Elem == nil {
+		return nil
+	}
+	v, ok := field.Elem.(*schema.Resource)
+	if !ok {
+		return nil
+	}
+	if v == nil {
+		return nil
+	}
+	return v.Schema
+}
+
+func GetDocSortedArgNames(input map[string]*schema.Schema) []string {
+	var fields []string
+	fields = append(fields, getArgNamesFromSchema(input, true, false)...)
+	fields = append(fields, getArgNamesFromSchema(input, false, true)...)
+	return fields
+}
+
+func getArgNamesFromSchema(input map[string]*schema.Schema, onlyRequired, onlyOptional bool) []string {
+	var fields []string
+	for _, fieldName := range sortFields(input) {
+		field := input[fieldName]
+		// nothing to see here, move along
+		if !field.Optional && !field.Required {
+			continue
+		}
+		if onlyRequired && !field.Required {
+			continue
+		}
+		if onlyOptional && !field.Optional {
+			continue
+		}
+		fields = append(fields, fieldName)
+	}
+	return fields
+}
+
+func sortFields(input map[string]*schema.Schema) []string {
+	fieldNames := make([]string, 0)
+	for field := range input {
+		fieldNames = append(fieldNames, field)
+	}
+	sort.Strings(fieldNames)
+	return fieldNames
+}
