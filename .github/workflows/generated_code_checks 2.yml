@@ -1,0 +1,19 @@
+name: generated-code
+
+on: pull_request
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
+    - name: go run ./apispec-rule-gen
+      working-directory: ./tools
+      run: go run ./apispec-rule-gen && git diff --exit-code
