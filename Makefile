@@ -7,9 +7,12 @@ e2e:
 	cd integration && go test && cd ../
 
 build:
+	git submodule update --init --recursive
+	sh scripts/inject.sh
+	go mod tidy 
 	go build
 
-install: build
+install:build
 	mkdir -p ~/.tflint.d/plugins
 	mv ./tflint-ruleset-azurerm-ext ~/.tflint.d/plugins
 
@@ -21,10 +24,6 @@ tools:
 	go install golang.org/x/lint/golint@latest
 
 updateSubmodule:
-	cd ./tools/apispec-rule-gen/azure-rest-api-specs/
 	git submodule update --init --recursive
-	cd ../../..
-
-
 
 .PHONY: test e2e build install lint tools updateSubmodule
