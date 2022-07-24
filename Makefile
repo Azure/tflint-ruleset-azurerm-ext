@@ -9,7 +9,8 @@ e2e:
 build:
 	git submodule update --init --recursive
 	sh scripts/inject.sh
-	go mod tidy 
+	go mod tidy
+	go mod vendor 
 	go build
 
 install:build

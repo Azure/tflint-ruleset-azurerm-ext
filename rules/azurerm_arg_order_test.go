@@ -49,46 +49,44 @@ resource "azurerm_container_group" "example" {
     memory = "1.5"
   }
 
-  tags = {
+  tags                = {
     environment = "testing"
   }
 }`,
 			Expected: helper.Issues{
 				{
-					Rule: NewAzurermArgsOrderRule(),
+					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
 resource "azurerm_resource_group" "example" {
   location = "West Europe"
   name     = "example-resources"
-}
-`,
+}`,
 					Range: hcl.Range{
 						Filename: "config.tf",
 						Start: hcl.Pos{
 							Line:   2,
-							Column: 11,
+							Column: 1,
 						},
 						End: hcl.Pos{
 							Line:   2,
-							Column: 33,
+							Column: 44,
 						},
 					},
 				},
 				{
-					Rule: NewAzurermArgsOrderRule(),
+					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-  container {
-    cpu    = "0.5"
-    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
-    memory = "1.5"
-    name   = "hello-world"
+container {
+  cpu    = "0.5"
+  image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+  memory = "1.5"
+  name   = "hello-world"
 
-    ports {
-	  port     = 443
-	  protocol = "TCP"
-    }
+  ports {
+    port     = 443
+    protocol = "TCP"
   }
-`,
+}`,
 					Range: hcl.Range{
 						Filename: "config.tf",
 						Start: hcl.Pos{
@@ -102,15 +100,14 @@ resource "azurerm_resource_group" "example" {
 					},
 				},
 				{
-					Rule: NewAzurermArgsOrderRule(),
+					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-  container {
-    cpu    = "0.5"
-    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
-    memory = "1.5"
-    name   = "sidecar"
-  }
-`,
+container {
+  cpu    = "0.5"
+  image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+  memory = "1.5"
+  name   = "sidecar"
+}`,
 					Range: hcl.Range{
 						Filename: "config.tf",
 						Start: hcl.Pos{
@@ -124,7 +121,7 @@ resource "azurerm_resource_group" "example" {
 					},
 				},
 				{
-					Rule: NewAzurermArgsOrderRule(),
+					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
 resource "azurerm_container_group" "example" {
   container {
@@ -134,8 +131,8 @@ resource "azurerm_container_group" "example" {
     name   = "hello-world"
 
     ports {
-	  port     = 443
-	  protocol = "TCP"
+      port     = 443
+      protocol = "TCP"
     }
   }
   container {
@@ -151,20 +148,19 @@ resource "azurerm_container_group" "example" {
 
   dns_name_label      = "aci-label"
   ip_address_type     = "Public"
-  tags = {
+  tags                = {
     environment = "testing"
   }
-}
-`,
+}`,
 					Range: hcl.Range{
 						Filename: "config.tf",
 						Start: hcl.Pos{
 							Line:   7,
-							Column: 11,
+							Column: 1,
 						},
 						End: hcl.Pos{
 							Line:   7,
-							Column: 34,
+							Column: 45,
 						},
 					},
 				},
@@ -172,7 +168,7 @@ resource "azurerm_container_group" "example" {
 		},
 	}
 
-	rule := NewAzurermArgsOrderRule()
+	rule := NewAzurermArgOrderRule()
 
 	for _, tc := range cases {
 		runner := helper.TestRunner(t, map[string]string{"config.tf": tc.Content})

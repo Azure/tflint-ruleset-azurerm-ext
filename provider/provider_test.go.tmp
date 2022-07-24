@@ -6,11 +6,7 @@ import (
 )
 
 func Test_Lun(t *testing.T) {
-	blockNameSeq := []string{"azurerm_container_group"}
-	schemaMap := GetArgSchema(blockNameSeq, "resource")
-	fields := GetDocSortedArgNames(schemaMap)
-	for _, field := range fields {
-		fmt.Println(field)
-		fmt.Println(schemaMap[field].Required)
-	}
+	blockNameSeq := []string{"resource", "azurerm_container_group"}
+	schemaMap := GetArgSchema(blockNameSeq)
+	fmt.Println(schemaMap)
 }

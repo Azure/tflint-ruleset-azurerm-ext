@@ -4,53 +4,47 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-azurerm/internal/provider"
 	"log"
-	"sort"
 )
 
 var azProvider = provider.AzureProvider()
 
-func getRootSchema(rootBlockName string, blockType RootBlockType) map[string]*schema.Schema {
+func getRootSchema(rootBlockName string, rootBlockType RootBlockType) map[string]*schema.Schema {
 	blockNameNotValid := false
-	if blockType == Provider {
+	if rootBlockType == Provider {
 		if rootBlockName == "azurerm" {
 			return azProvider.Schema
 		}
 		blockNameNotValid = true
-	} else if blockType == Resource {
+	} else if rootBlockType == Resource {
 		if _, ok := azProvider.ResourcesMap[rootBlockName]; ok {
 			return azProvider.ResourcesMap[rootBlockName].Schema
 		}
 		blockNameNotValid = true
-	} else if blockType == DataSource {
+	} else if rootBlockType == DataSource {
 		if _, ok := azProvider.DataSourcesMap[rootBlockName]; ok {
 			return azProvider.DataSourcesMap[rootBlockName].Schema
 		}
 		blockNameNotValid = true
 	}
 	if blockNameNotValid {
-		log.Printf("[WARN] no such %s with block name `%s`!", blockType, rootBlockName)
+		log.Printf("[WARN] no such %s with block name `%s`!", rootBlockType, rootBlockName)
 		return nil
 	}
-	log.Printf("[WARN] block type `%s` not supported!", blockType)
+	log.Printf("[WARN] block type `%s` not supported!", rootBlockType)
 	return nil
 }
 
-func GetArgSchema(blockNameSeq []string, blockType RootBlockType) map[string]*schema.Schema {
-	if blockNameSeq == nil {
-		log.Printf("[WARN] blockNameSeq is nil")
-		return nil
-	} else if len(blockNameSeq) == 0 {
-		log.Printf("[WARN] blockNameSeq is empty")
+// GetArgSchema the first elem in blockNameSeq is rootBlockType, followed by the sequence of parent block names
+func GetArgSchema(blockNameSeq []string) map[string]*schema.Schema {
+	if len(blockNameSeq) < 2 {
+		log.Printf("[WARN] there must be at least 2 elements in blockNameSeq (rootBlockType, rootBlockName)")
 	}
-	input := getRootSchema(blockNameSeq[0], blockType)
-	return getNestedArgSchema(blockNameSeq, input, 1)
+	input := getRootSchema(blockNameSeq[1], RootBlockType(blockNameSeq[0]))
+	return getNestedArgSchema(blockNameSeq, input, 2)
 }
 
 func getNestedArgSchema(blockNameSeq []string, input map[string]*schema.Schema, index int) map[string]*schema.Schema {
-	if blockNameSeq == nil {
-		log.Printf("[WARN] blockNameSeq is nil")
-		return nil
-	} else if index > len(blockNameSeq) {
+	if index > len(blockNameSeq) {
 		return nil
 	} else if index == len(blockNameSeq) {
 		return input
@@ -87,39 +81,4 @@ func getInnerArgSchema(field *schema.Schema) map[string]*schema.Schema {
 		return nil
 	}
 	return v.Schema
-}
-
-func GetDocSortedArgNames(input map[string]*schema.Schema) []string {
-	var fields []string
-	fields = append(fields, getArgNamesFromSchema(input, true, false)...)
-	fields = append(fields, getArgNamesFromSchema(input, false, true)...)
-	return fields
-}
-
-func getArgNamesFromSchema(input map[string]*schema.Schema, onlyRequired, onlyOptional bool) []string {
-	var fields []string
-	for _, fieldName := range sortFields(input) {
-		field := input[fieldName]
-		// nothing to see here, move along
-		if !field.Optional && !field.Required {
-			continue
-		}
-		if onlyRequired && !field.Required {
-			continue
-		}
-		if onlyOptional && !field.Optional {
-			continue
-		}
-		fields = append(fields, fieldName)
-	}
-	return fields
-}
-
-func sortFields(input map[string]*schema.Schema) []string {
-	fieldNames := make([]string, 0)
-	for field := range input {
-		fieldNames = append(fieldNames, field)
-	}
-	sort.Strings(fieldNames)
-	return fieldNames
 }
