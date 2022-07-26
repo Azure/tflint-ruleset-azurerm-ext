@@ -15,6 +15,46 @@ func Test_AzurermArgsOrderRule(t *testing.T) {
 		Expected helper.Issues
 	}{
 		{
+			Name: "dynamic block",
+			Content: `
+resource "azurerm_container_group" "example" {
+  location = "West Europe"
+  name     = "example-resources"
+
+  dynamic "setting" {
+    for_each = var.settings
+    content {
+      namespace = setting.value["namespace"]
+      name 		= setting.value["name"]
+      value 	= setting.value["value"]
+    }
+  }
+}
+`,
+			Expected: helper.Issues{
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+content {
+  name      = setting.value["name"]
+  namespace = setting.value["namespace"]
+  value     = setting.value["value"]
+}`,
+					Range: hcl.Range{
+						Filename: "config.tf",
+						Start: hcl.Pos{
+							Line:   8,
+							Column: 5,
+						},
+						End: hcl.Pos{
+							Line:   8,
+							Column: 12,
+						},
+					},
+				},
+			},
+		},
+		{
 			Name: "comments",
 			Content: `
 resource "azurerm_resource_group" "example" {
