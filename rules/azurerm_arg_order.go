@@ -204,18 +204,21 @@ func (r *AzurermArgOrderRule) checkArgOrder(block *hclsyntax.Block, parentBlockN
 
 func (r *AzurermArgOrderRule) sortArgNames(argNameSeq []string, parentBlockNameSeq []string) ([]string, bool) {
 	argSchemaMap := provider.GetArgSchema(parentBlockNameSeq)
+	priority := map[string]int{"count": 2, "for_each": 2, "depends_on": 0}
 	orderRuleFunc := func(i, j int) bool {
-		switch argNameSeq[i] {
-		case "for_each":
-			return true
-		case "depends_on":
-			return false
+		var priorityI, priorityJ int
+		if score, isSpecial := priority[argNameSeq[i]]; isSpecial {
+			priorityI = score
+		} else {
+			priorityI = 1
 		}
-		switch argNameSeq[j] {
-		case "for_each":
-			return false
-		case "depends_on":
-			return true
+		if score, isSpecial := priority[argNameSeq[j]]; isSpecial {
+			priorityJ = score
+		} else {
+			priorityJ = 1
+		}
+		if priorityI != priorityJ {
+			return priorityI > priorityJ
 		}
 		iSchema, iInSchema := argSchemaMap[argNameSeq[i]]
 		jSchema, jInSchema := argSchemaMap[argNameSeq[j]]
