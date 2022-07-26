@@ -15,7 +15,150 @@ func Test_AzurermArgOrderRule(t *testing.T) {
 		Expected helper.Issues
 	}{
 		{
-			Name: "Meta Arg",
+			Name: "1. attr alphabetic order",
+			Content: `
+resource "azurerm_container_group" "example" {
+  os_type             = "Linux"
+  name                = "example-continst"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+}`,
+			Expected: helper.Issues{
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+resource "azurerm_container_group" "example" {
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+}`,
+					Range: hcl.Range{
+						Filename: "config.tf",
+						Start: hcl.Pos{
+							Line:   2,
+							Column: 1,
+						},
+						End: hcl.Pos{
+							Line:   2,
+							Column: 45,
+						},
+					},
+				},
+			},
+		},
+
+		{
+			Name: "2. split and reorder of required and optional arg",
+			Content: `
+resource "azurerm_container_group" "example" {
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  ip_address_type     = "Public"
+  dns_name_label      = "aci-label"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+  tags                = {
+    environment = "testing"
+  }
+}`,
+			Expected: helper.Issues{
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+resource "azurerm_container_group" "example" {
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags                = {
+    environment = "testing"
+  }
+}`,
+					Range: hcl.Range{
+						Filename: "config.tf",
+						Start: hcl.Pos{
+							Line:   2,
+							Column: 1,
+						},
+						End: hcl.Pos{
+							Line:   2,
+							Column: 45,
+						},
+					},
+				},
+			},
+		},
+
+		{
+			Name: "3. reorder of args in nested block",
+			Content: `
+resource "azurerm_container_group" "example" {
+  container {
+    name   = "hello-world"
+    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    cpu    = "0.5"
+    ports {
+      protocol = "TCP"
+	  port     = 443
+    }
+    memory = "1.5"
+  }
+}`,
+			Expected: helper.Issues{
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+ports {
+  port     = 443
+  protocol = "TCP"
+}`,
+					Range: hcl.Range{
+						Filename: "config.tf",
+						Start: hcl.Pos{
+							Line:   7,
+							Column: 5,
+						},
+						End: hcl.Pos{
+							Line:   7,
+							Column: 10,
+						},
+					},
+				},
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+container {
+  cpu    = "0.5"
+  image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+  memory = "1.5"
+  name   = "hello-world"
+
+  ports {
+    port     = 443
+    protocol = "TCP"
+  }
+}`,
+					Range: hcl.Range{
+						Filename: "config.tf",
+						Start: hcl.Pos{
+							Line:   3,
+							Column: 3,
+						},
+						End: hcl.Pos{
+							Line:   3,
+							Column: 12,
+						},
+					},
+				},
+			},
+		},
+
+		{
+			Name: "4. Meta Arg",
 			Content: `
 resource "aws_instance" "server" {
   ami           = "ami-a1b2c3d4"
@@ -102,8 +245,9 @@ resource "aws_instance" "server" {
 				},
 			},
 		},
+
 		{
-			Name: "dynamic block",
+			Name: "5. dynamic block",
 			Content: `
 resource "azurerm_container_group" "example" {
   location = "West Europe"
@@ -164,8 +308,9 @@ dynamic "setting" {
 				},
 			},
 		},
+
 		{
-			Name: "common",
+			Name: "6. common",
 			Content: `
 resource "azurerm_resource_group" "example" {
   name     = "example-resources"
