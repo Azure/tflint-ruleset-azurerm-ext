@@ -472,6 +472,6 @@ resource "azurerm_container_group" "example" {
 			t.Fatalf("Unexpected error occurred: %s", err)
 		}
 
-		helper.AssertIssues(t, tc.Expected, runner.Issues)
+		AssertIssues(t, tc.Expected, runner.Issues)
 	}
 }

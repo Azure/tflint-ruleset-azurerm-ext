@@ -37,7 +37,7 @@ func getRootSchema(rootBlockName string, rootBlockType RootBlockType) map[string
 // GetArgSchema the first elem in blockNameSeq is rootBlockType, followed by the sequence of parent block names
 func GetArgSchema(blockNameSeq []string) map[string]*schema.Schema {
 	if len(blockNameSeq) < 2 {
-		log.Printf("[WARN] there must be at least 2 elements in blockNameSeq (rootBlockType, rootBlockName)")
+		log.Printf("[DEBUG] there must be at least 2 elements in blockNameSeq (rootBlockType, rootBlockName)")
 	}
 	input := getRootSchema(blockNameSeq[1], RootBlockType(blockNameSeq[0]))
 	return getNestedArgSchema(blockNameSeq, input, 2)
@@ -51,12 +51,12 @@ func getNestedArgSchema(blockNameSeq []string, input map[string]*schema.Schema, 
 	} else {
 		field, ok := input[blockNameSeq[index]]
 		if !ok {
-			log.Printf("[WARN] `%s` is not the inner block of %s", blockNameSeq[index], blockNameSeq[:index])
+			log.Printf("[DEBUG] `%s` is not the inner block of %s", blockNameSeq[index], blockNameSeq[:index])
 			return nil
 		}
 		innerSchema := getInnerArgSchema(field)
 		if innerSchema == nil {
-			log.Printf("[WARN] innerSchema read failed for %s", blockNameSeq[:index+1])
+			log.Printf("[DEBUG] innerSchema read failed for %s", blockNameSeq[:index+1])
 			return nil
 		}
 		return getNestedArgSchema(blockNameSeq, innerSchema, index+1)
