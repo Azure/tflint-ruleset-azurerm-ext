@@ -6,6 +6,7 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/hcl/v2 v2.13.0
+	github.com/hashicorp/terraform-plugin-sdk/v2 v2.18.0
 	github.com/hashicorp/terraform-provider-azurerm v0.0.0-00010101000000-000000000000
 	github.com/terraform-linters/tflint-plugin-sdk v0.11.0
 )
@@ -48,7 +49,6 @@ require (
 	github.com/hashicorp/terraform-json v0.14.0 // indirect
 	github.com/hashicorp/terraform-plugin-go v0.10.0 // indirect
 	github.com/hashicorp/terraform-plugin-log v0.4.1 // indirect
-	github.com/hashicorp/terraform-plugin-sdk/v2 v2.18.0 // indirect
 	github.com/hashicorp/terraform-registry-address v0.0.0-20220623143253-7d51757b572c // indirect
 	github.com/hashicorp/terraform-svchost v0.0.0-20200729002733-f050f53b9734 // indirect
 	github.com/hashicorp/yamux v0.0.0-20210316155119-a95892c5f864 // indirect

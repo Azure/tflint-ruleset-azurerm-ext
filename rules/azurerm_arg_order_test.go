@@ -471,6 +471,60 @@ resource "azurerm_container_group" "example" {
 				},
 			},
 		},
+		{
+			Name: "7. datasource",
+			Content: `
+data "azurerm_resources" "example" {
+  resource_group_name = "example-resources"
+  required_tags = {
+    environment = "production"
+    role        = "webserver"
+  }
+}`,
+			Expected: helper.Issues{
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+data "azurerm_resources" "example" {
+  required_tags = {
+    environment = "production"
+    role        = "webserver"
+  }
+  resource_group_name = "example-resources"
+}`,
+				},
+			},
+		},
+		{
+			Name: "8. provider",
+			Content: `
+provider "azurerm" {
+  client_id   = "temp"
+  features {}
+}`,
+			Expected: helper.Issues{
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+provider "azurerm" {
+  features {}
+
+  client_id   = "temp"
+}`,
+					Range: hcl.Range{
+						Filename: "config.tf",
+						Start: hcl.Pos{
+							Line:   2,
+							Column: 1,
+						},
+						End: hcl.Pos{
+							Line:   2,
+							Column: 19,
+						},
+					},
+				},
+			},
+		},
 	}
 
 	rule := NewAzurermArgOrderRule()

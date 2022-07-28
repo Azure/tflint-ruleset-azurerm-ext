@@ -73,8 +73,8 @@ func (r *AzurermArgOrderRule) visitModule(runner tflint.Runner, module *hclsynta
 	}
 	var err error
 	for _, block := range module.Blocks {
-		switch block.Type {
-		case "resource", "datasource", "provider":
+		rootBlockType := provider.RootBlockType(block.Type)
+		if _, isAzBlock := provider.RootBlockTypes[rootBlockType]; isAzBlock {
 			if subErr := r.visitAzBlock(runner, block); subErr != nil {
 				err = multierror.Append(subErr)
 			}
@@ -99,13 +99,8 @@ func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.
 	if block == nil {
 		return "", nil
 	}
-	//log.Printf("[INFO] start process block `%s`", r.getBlockHead(block))
 	argSchemas := provider.GetArgSchema(parentBlockNames)
 	argHclTxts, err := r.getArgHclTxts(runner, block, parentBlockNames)
-	if err != nil {
-		return "", err
-	}
-	blockHeadLine, blockTailLine, err := r.getBlockHeadTailLine(runner, block)
 	if err != nil {
 		return "", err
 	}
@@ -128,16 +123,19 @@ func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.
 		}
 		isGapNeeded = true
 	}
-	sortedArgHclTxts = append([]string{blockHeadLine}, sortedArgHclTxts...)
-	sortedArgHclTxts = append(sortedArgHclTxts, blockTailLine)
 	sortedBlockHclTxt := strings.Join(sortedArgHclTxts, "\n")
+	if strings.TrimSpace(sortedBlockHclTxt) == "" {
+		sortedBlockHclTxt = fmt.Sprintf("%s {}", r.getBlockHead(block))
+	} else {
+		sortedBlockHclTxt = fmt.Sprintf("%s {\n%s\n}", r.getBlockHead(block), sortedBlockHclTxt)
+	}
+	sortedBlockHclTxt = string(hclwrite.Format([]byte(sortedBlockHclTxt)))
 	if !r.checkArgOrder(block, sortedArgNames) {
 		runner.EmitIssue(
 			r,
 			fmt.Sprintf("Arguments are not sorted in azurerm doc order, correct order is:\n%s", sortedBlockHclTxt),
 			block.DefRange(),
 		)
-		fmt.Println(string(hclwrite.Format([]byte(sortedBlockHclTxt))))
 	}
 	return sortedBlockHclTxt, err
 }
@@ -148,10 +146,7 @@ func (r *AzurermArgOrderRule) visitAttr(runner tflint.Runner, attr *hclsyntax.At
 	if err != nil {
 		return "", err
 	}
-	attrRange := attr.Range()
-	attrRange.Start.Byte -= attrRange.Start.Column - 1
-	attrRange.Start.Column = 1
-	attrHclTxt := string(attrRange.SliceBytes(file.Bytes))
+	attrHclTxt := string(attr.Range().SliceBytes(file.Bytes))
 	return attrHclTxt, nil
 }
 
@@ -233,22 +228,6 @@ func (r *AzurermArgOrderRule) getSortedNonAzArgNames(nonAzArgNames []string) ([]
 	sort.Strings(nonAzOrMetaArgNames)
 	tailMetaArgNames = append(dynamicBlockNames, tailMetaArgNames...)
 	return headMetaArgNames, nonAzOrMetaArgNames, tailMetaArgNames
-}
-
-func (r *AzurermArgOrderRule) getBlockHeadTailLine(runner tflint.Runner, block *hclsyntax.Block) (string, string, error) {
-	file, err := runner.GetFile(block.Range().Filename)
-	if err != nil {
-		return "", "", err
-	}
-	blockHeadLineRange := hcl.RangeBetween(block.TypeRange, block.OpenBraceRange)
-	blockHeadLineRange.Start.Byte -= blockHeadLineRange.Start.Column - 1
-	blockHeadLineRange.Start.Column = 1
-	blockHeadLine := string(blockHeadLineRange.SliceBytes(file.Bytes))
-	blockTailLineRange := block.CloseBraceRange
-	blockTailLineRange.Start.Byte -= blockTailLineRange.Start.Column - 1
-	blockTailLineRange.Start.Column = 1
-	blockTailLine := string(blockTailLineRange.SliceBytes(file.Bytes))
-	return blockHeadLine, blockTailLine, nil
 }
 
 func (r *AzurermArgOrderRule) checkArgOrder(block *hclsyntax.Block, sortedArgNames []string) bool {
