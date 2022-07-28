@@ -160,47 +160,53 @@ container {
 		{
 			Name: "4. Meta Arg",
 			Content: `
-resource "aws_instance" "server" {
-  ami           = "ami-a1b2c3d4"
-  count = 4 # create four similar EC2 instances
+resource "azurerm_virtual_network" "vnet" {
+  address_space       = ["10.0.0.0/16"]
+  count               = 4
   depends_on = [
-    aws_iam_role_policy.example
+    azurerm_resource_group.example
   ]
-  iam_instance_profile = aws_iam_instance_profile.example
-  instance_type = "t2.micro"
+  location            = azurerm_resource_group.example.location
+  name                = "myTFVnet"
+  resource_group_name = azurerm_resource_group.rg.name
+
   tags = {
-    Name = "Server ${count.index}"
+    Name = "VM network ${count.index}"
   }
 }
 
-resource "aws_instance" "server" {
-  ami           = "ami-a1b2c3d4"
+resource "azurerm_virtual_network" "vnet" {
+  address_space       = ["10.0.0.0/16"]
   depends_on = [
-    aws_iam_role_policy.example
+    azurerm_resource_group.example
   ]
-  iam_instance_profile = aws_iam_instance_profile.example
-  instance_type = "t2.micro"
-  subnet_id     = each.key # note: each.key and each.value are the same for a set
-  for_each = local.subnet_ids
-  
+  for_each            = local.subnet_ids
+  location            = azurerm_resource_group.example.location
+  name                = "myTFVnet"
+  resource_group_name = azurerm_resource_group.rg.name
+
   tags = {
-    Name = "Server ${each.key}"
+    Name = "VM network ${each.key}"
   }
 }`,
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-resource "aws_instance" "server" {
-  count                = 4
-  ami                  = "ami-a1b2c3d4"
-  iam_instance_profile = aws_iam_instance_profile.example
-  instance_type        = "t2.micro"
-  tags                 = {
-    Name = "Server ${count.index}"
+resource "azurerm_virtual_network" "vnet" {
+  count = 4
+  
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.example.location
+  name                = "myTFVnet"
+  resource_group_name = azurerm_resource_group.rg.name
+
+  tags = {
+    Name = "VM network ${count.index}"
   }
-  depends_on           = [
-    aws_iam_role_policy.example
+  
+  depends_on = [
+    azurerm_resource_group.example
   ]
 }`,
 					Range: hcl.Range{
@@ -211,35 +217,38 @@ resource "aws_instance" "server" {
 						},
 						End: hcl.Pos{
 							Line:   2,
-							Column: 33,
+							Column: 42,
 						},
 					},
 				},
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-resource "aws_instance" "server" {
-  for_each             = local.subnet_ids
-  ami                  = "ami-a1b2c3d4"
-  iam_instance_profile = aws_iam_instance_profile.example
-  instance_type        = "t2.micro"
-  subnet_id            = each.key
-  tags                 = {
-    Name = "Server ${each.key}"
+resource "azurerm_virtual_network" "vnet" {
+  for_each = local.subnet_ids
+
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.example.location
+  name                = "myTFVnet"
+  resource_group_name = azurerm_resource_group.rg.name
+
+  tags = {
+    Name = "VM network ${each.key}"
   }
-  depends_on           = [
-    aws_iam_role_policy.example
+
+  depends_on = [
+    azurerm_resource_group.example
   ]
 }`,
 					Range: hcl.Range{
 						Filename: "config.tf",
 						Start: hcl.Pos{
-							Line:   15,
+							Line:   17,
 							Column: 1,
 						},
 						End: hcl.Pos{
-							Line:   15,
-							Column: 33,
+							Line:   17,
+							Column: 42,
 						},
 					},
 				},
@@ -288,6 +297,7 @@ content {
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
 dynamic "setting" {
   for_each = var.settings
+
   content {
     name      = setting.value["name"]
     namespace = setting.value["namespace"]
@@ -467,11 +477,11 @@ resource "azurerm_container_group" "example" {
 
 	for _, tc := range cases {
 		runner := helper.TestRunner(t, map[string]string{"config.tf": tc.Content})
-
-		if err := rule.Check(runner); err != nil {
-			t.Fatalf("Unexpected error occurred: %s", err)
-		}
-
-		AssertIssues(t, tc.Expected, runner.Issues)
+		t.Run(tc.Name, func(t *testing.T) {
+			if err := rule.Check(runner); err != nil {
+				t.Fatalf("Unexpected error occurred: %s", err)
+			}
+			AssertIssues(t, tc.Expected, runner.Issues)
+		})
 	}
 }

@@ -2,6 +2,8 @@ package rules
 
 import (
 	"fmt"
+	"github.com/hashicorp/hcl/v2/hclwrite"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"sort"
 	"strings"
@@ -85,155 +87,188 @@ func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyn
 	if azBlock == nil {
 		return nil
 	}
-	parentBlockNameSeq := []string{azBlock.Type, azBlock.Labels[0]}
-	_, err := r.visitBlock(runner, azBlock, parentBlockNameSeq)
+	parentBlockNames := []string{azBlock.Type, azBlock.Labels[0]}
+	if provider.GetArgSchema(parentBlockNames) == nil {
+		return nil
+	}
+	_, err := r.visitBlock(runner, azBlock, parentBlockNames)
 	return err
 }
 
-func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNameSeq []string) ([]string, error) {
+func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) (string, error) {
 	if block == nil {
-		return []string{}, nil
+		return "", nil
 	}
 	//log.Printf("[INFO] start process block `%s`", r.getBlockHead(block))
-	attrLinesMap, nestedBlockInnerLinesMap, err := r.getArgVals(runner, block, parentBlockNameSeq)
-	sortedArgHclLines := r.getInnerSortedLines(attrLinesMap, nestedBlockInnerLinesMap, parentBlockNameSeq)
-	if !r.checkArgOrder(block, parentBlockNameSeq) {
-		r.printBlockWithArgsSorted(runner, block, sortedArgHclLines)
+	argSchemas := provider.GetArgSchema(parentBlockNames)
+	argHclTxts, err := r.getArgHclTxts(runner, block, parentBlockNames)
+	if err != nil {
+		return "", err
 	}
-	return sortedArgHclLines, err
+	blockHeadLine, blockTailLine, err := r.getBlockHeadTailLine(runner, block)
+	if err != nil {
+		return "", err
+	}
+	var argNames, sortedArgHclTxts, sortedArgNames []string
+	for argName := range argHclTxts {
+		argNames = append(argNames, argName)
+	}
+	localSortedArgNameGrps := r.getSortedArgNames(argNames, argSchemas)
+	isGapNeeded := false
+	for _, localSortedArgNames := range localSortedArgNameGrps {
+		if len(localSortedArgNames) == 0 {
+			continue
+		}
+		sortedArgNames = append(sortedArgNames, localSortedArgNames...)
+		if isGapNeeded {
+			sortedArgHclTxts = append(sortedArgHclTxts, "")
+		}
+		for _, argName := range localSortedArgNames {
+			sortedArgHclTxts = append(sortedArgHclTxts, argHclTxts[argName])
+		}
+		isGapNeeded = true
+	}
+	sortedArgHclTxts = append([]string{blockHeadLine}, sortedArgHclTxts...)
+	sortedArgHclTxts = append(sortedArgHclTxts, blockTailLine)
+	sortedBlockHclTxt := strings.Join(sortedArgHclTxts, "\n")
+	if !r.checkArgOrder(block, sortedArgNames) {
+		runner.EmitIssue(
+			r,
+			fmt.Sprintf("Arguments are not sorted in azurerm doc order, correct order is:\n%s", sortedBlockHclTxt),
+			block.DefRange(),
+		)
+		fmt.Println(string(hclwrite.Format([]byte(sortedBlockHclTxt))))
+	}
+	return sortedBlockHclTxt, err
 }
 
 // todo: sort keys for map type attr or the elem of attr
-func (r *AzurermArgOrderRule) visitAttr(runner tflint.Runner, attr *hclsyntax.Attribute) ([]string, error) {
+func (r *AzurermArgOrderRule) visitAttr(runner tflint.Runner, attr *hclsyntax.Attribute) (string, error) {
 	file, err := runner.GetFile(attr.Range().Filename)
 	if err != nil {
-		return []string{}, err
+		return "", err
 	}
-	attrOffset := attr.NameRange.Start.Column - 1
-	lines := strings.Split(string(attr.Expr.Range().SliceBytes(file.Bytes)), "\n")
-	for i, line := range lines {
-		outDent := 0
-		for ; outDent < attrOffset && outDent < len(line) && line[outDent:outDent+1] == " "; outDent++ {
-		}
-		lines[i] = line[outDent:]
-	}
-	return lines, nil
+	attrRange := attr.Range()
+	attrRange.Start.Byte -= attrRange.Start.Column - 1
+	attrRange.Start.Column = 1
+	attrHclTxt := string(attrRange.SliceBytes(file.Bytes))
+	return attrHclTxt, nil
 }
 
-func (r *AzurermArgOrderRule) getArgVals(runner tflint.Runner, block *hclsyntax.Block,
-	parentBlockNameSeq []string) (map[string][][]string, map[string][][]string, error) {
+func (r *AzurermArgOrderRule) getArgHclTxts(runner tflint.Runner, block *hclsyntax.Block,
+	parentBlockNames []string) (map[string]string, error) {
 	var err error
-	attrLinesMap := make(map[string][][]string)
-	nestedBlockInnerLinesMap := make(map[string][][]string)
+	argHclTxtsGroups := make(map[string][]string)
+	argHclTxts := make(map[string]string)
 	for attrName, attr := range block.Body.Attributes {
-		attrLines, subErr := r.visitAttr(runner, attr)
+		hclTxt, subErr := r.visitAttr(runner, attr)
 		if subErr != nil {
 			err = multierror.Append(err, subErr)
 		}
-		attrLinesMap[attrName] = append(attrLinesMap[attrName], attrLines)
+		argHclTxtsGroups[attrName] = append(argHclTxtsGroups[attrName], hclTxt)
 	}
 	for _, nestedBlock := range block.Body.Blocks {
 		nestedBlockName := r.getBlockHead(nestedBlock)
-		sortedInnerLines, subErr := r.visitBlock(runner, nestedBlock, append(parentBlockNameSeq, nestedBlock.Type))
+		hclTxt, subErr := r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type))
 		if subErr != nil {
 			err = multierror.Append(err, subErr)
 		}
-		nestedBlockInnerLinesMap[nestedBlockName] = append(nestedBlockInnerLinesMap[nestedBlockName], sortedInnerLines)
+		argHclTxtsGroups[nestedBlockName] = append(argHclTxtsGroups[nestedBlockName], hclTxt)
 	}
-	return attrLinesMap, nestedBlockInnerLinesMap, err
+	for argName, hclTxtsGroups := range argHclTxtsGroups {
+		argHclTxts[argName] = strings.Join(hclTxtsGroups, "\n")
+	}
+	return argHclTxts, err
 }
 
-func (r *AzurermArgOrderRule) getInnerSortedLines(attrLinesMap map[string][][]string,
-	nestedBlockInnerLinesMap map[string][][]string, parentBlockNameSeq []string) []string {
-	var argNameSeq, attrNameSeq []string
-	for attrName := range attrLinesMap {
-		argNameSeq = append(argNameSeq, attrName)
-		attrNameSeq = append(attrNameSeq, attrName)
-	}
-	for nestedBlockName, _ := range nestedBlockInnerLinesMap {
-		argNameSeq = append(argNameSeq, nestedBlockName)
-	}
-
-	sortedArgNameSeq, _ := r.sortArgNames(argNameSeq, parentBlockNameSeq)
-	maxArgNameLen := r.getMaxStrLen(attrNameSeq)
-	schemaMap := provider.GetArgSchema(parentBlockNameSeq)
-	lastArgName := ""
-	var argHclLines []string
-	for _, argName := range sortedArgNameSeq {
-		if argName == lastArgName {
-			continue
+func (r *AzurermArgOrderRule) getSortedArgNames(argNames []string, argSchemas map[string]*schema.Schema) [][]string {
+	getSortedAzArgNamesByOptionality := func(isRequired bool) []string {
+		var sortedArgNames []string
+		for _, argName := range argNames {
+			argSchema, isAzArg := argSchemas[argName]
+			if !isAzArg || argSchema.Required != isRequired {
+				continue
+			}
+			sortedArgNames = append(sortedArgNames, argName)
 		}
-		if lastArgName != "" {
-			lastArgSchema, isLastArgInSchema := schemaMap[lastArgName]
-			argSchema, isArgInSchema := schemaMap[argName]
-			if isLastArgInSchema && (!isArgInSchema || (lastArgSchema.Required && argSchema.Optional)) {
-				argHclLines = append(argHclLines, "")
+		sort.Strings(sortedArgNames)
+		return sortedArgNames
+	}
+	sortedRequiredAzArgNames := getSortedAzArgNamesByOptionality(true)
+	sortedOptionalAzArgNames := getSortedAzArgNamesByOptionality(false)
+	var nonAzArgNames []string
+	for _, argName := range argNames {
+		if _, isAzArg := argSchemas[argName]; !isAzArg {
+			nonAzArgNames = append(nonAzArgNames, argName)
+		}
+	}
+	sortedHeadMetaArgNames, sortedNonAzOrMetaArgNames, sortedTailMetaArgNames := r.getSortedNonAzArgNames(nonAzArgNames)
+	return [][]string{sortedHeadMetaArgNames, sortedRequiredAzArgNames, sortedOptionalAzArgNames, sortedNonAzOrMetaArgNames, sortedTailMetaArgNames}
+}
+
+func (r *AzurermArgOrderRule) getSortedNonAzArgNames(nonAzArgNames []string) ([]string, []string, []string) {
+	headMetaArgPriority := map[string]int{"for_each": 1, "count": 1, "provider": 0}
+	tailMetaArgPriority := map[string]int{"lifecycle": 1, "depends_on": 0}
+	var headMetaArgNames, nonAzOrMetaArgNames, tailMetaArgNames, dynamicBlockNames []string
+	for _, argName := range nonAzArgNames {
+		if _, isHeadMeta := headMetaArgPriority[argName]; isHeadMeta {
+			headMetaArgNames = append(headMetaArgNames, argName)
+		} else if _, isTailMeta := tailMetaArgPriority[argName]; isTailMeta {
+			tailMetaArgNames = append(tailMetaArgNames, argName)
+		} else {
+			if strings.Split(argName, " ")[0] == "dynamic" {
+				dynamicBlockNames = append(dynamicBlockNames, argName)
+			} else {
+				nonAzOrMetaArgNames = append(nonAzOrMetaArgNames, argName)
 			}
 		}
-		lastArgName = argName
-		if _, argIsAttr := attrLinesMap[argName]; argIsAttr {
-			argHclLines = append(argHclLines, r.buildAttrHclLines(argName, attrLinesMap[argName], maxArgNameLen)...)
-		}
-		if _, argIsNestedBlock := nestedBlockInnerLinesMap[argName]; argIsNestedBlock {
-			argHclLines = append(argHclLines, r.buildNestedBlockHclLines(argName, nestedBlockInnerLinesMap[argName])...)
-		}
 	}
-	return argHclLines
+	sort.Slice(headMetaArgNames, func(i, j int) bool {
+		return headMetaArgPriority[headMetaArgNames[i]] < headMetaArgPriority[headMetaArgNames[j]]
+	})
+	sort.Slice(tailMetaArgNames, func(i, j int) bool {
+		return tailMetaArgPriority[tailMetaArgNames[i]] < tailMetaArgPriority[tailMetaArgNames[j]]
+	})
+	sort.Strings(dynamicBlockNames)
+	sort.Strings(nonAzOrMetaArgNames)
+	tailMetaArgNames = append(dynamicBlockNames, tailMetaArgNames...)
+	return headMetaArgNames, nonAzOrMetaArgNames, tailMetaArgNames
 }
 
-func (r *AzurermArgOrderRule) checkArgOrder(block *hclsyntax.Block, parentBlockNameSeq []string) bool {
-	var argNameSeq []string
-	var argStartPosSeq []hcl.Pos
+func (r *AzurermArgOrderRule) getBlockHeadTailLine(runner tflint.Runner, block *hclsyntax.Block) (string, string, error) {
+	file, err := runner.GetFile(block.Range().Filename)
+	if err != nil {
+		return "", "", err
+	}
+	blockHeadLineRange := hcl.RangeBetween(block.TypeRange, block.OpenBraceRange)
+	blockHeadLineRange.Start.Byte -= blockHeadLineRange.Start.Column - 1
+	blockHeadLineRange.Start.Column = 1
+	blockHeadLine := string(blockHeadLineRange.SliceBytes(file.Bytes))
+	blockTailLineRange := block.CloseBraceRange
+	blockTailLineRange.Start.Byte -= blockTailLineRange.Start.Column - 1
+	blockTailLineRange.Start.Column = 1
+	blockTailLine := string(blockTailLineRange.SliceBytes(file.Bytes))
+	return blockHeadLine, blockTailLine, nil
+}
+
+func (r *AzurermArgOrderRule) checkArgOrder(block *hclsyntax.Block, sortedArgNames []string) bool {
+	var argNames []string
+	var argStartPos []hcl.Pos
 	for attrName, attr := range block.Body.Attributes {
-		argNameSeq = append(argNameSeq, attrName)
-		argStartPosSeq = append(argStartPosSeq, attr.Range().Start)
+		argNames = append(argNames, attrName)
+		argStartPos = append(argStartPos, attr.Range().Start)
 	}
 	for _, nestedBlock := range block.Body.Blocks {
-		argNameSeq = append(argNameSeq, r.getBlockHead(nestedBlock))
-		argStartPosSeq = append(argStartPosSeq, nestedBlock.Range().Start)
+		argNames = append(argNames, r.getBlockHead(nestedBlock))
+		argStartPos = append(argStartPos, nestedBlock.Range().Start)
 	}
-	sort.Slice(argNameSeq, func(i, j int) bool {
-		if argStartPosSeq[i].Line == argStartPosSeq[j].Line {
-			return argStartPosSeq[i].Column < argStartPosSeq[j].Column
+	sort.Slice(argNames, func(i, j int) bool {
+		if argStartPos[i].Line == argStartPos[j].Line {
+			return argStartPos[i].Column < argStartPos[j].Column
 		}
-		return argStartPosSeq[i].Line < argStartPosSeq[j].Line
+		return argStartPos[i].Line < argStartPos[j].Line
 	})
-	_, isArgSorted := r.sortArgNames(argNameSeq, parentBlockNameSeq)
-	return isArgSorted
-}
-
-func (r *AzurermArgOrderRule) sortArgNames(argNameSeq []string, parentBlockNameSeq []string) ([]string, bool) {
-	argSchemaMap := provider.GetArgSchema(parentBlockNameSeq)
-	priority := map[string]int{"count": 2, "for_each": 2, "depends_on": 0}
-	orderRuleFunc := func(i, j int) bool {
-		var priorityI, priorityJ int
-		if score, isSpecial := priority[argNameSeq[i]]; isSpecial {
-			priorityI = score
-		} else {
-			priorityI = 1
-		}
-		if score, isSpecial := priority[argNameSeq[j]]; isSpecial {
-			priorityJ = score
-		} else {
-			priorityJ = 1
-		}
-		if priorityI != priorityJ {
-			return priorityI > priorityJ
-		}
-		iSchema, iInSchema := argSchemaMap[argNameSeq[i]]
-		jSchema, jInSchema := argSchemaMap[argNameSeq[j]]
-		if (iInSchema && !jInSchema) || (!iInSchema && jInSchema) {
-			return iInSchema
-		}
-		if iInSchema && jInSchema && ((iSchema.Required && jSchema.Optional) || (iSchema.Optional && jSchema.Required)) {
-			return iSchema.Required
-		}
-		return argNameSeq[i] < argNameSeq[j]
-	}
-	isSorted := sort.SliceIsSorted(argNameSeq, orderRuleFunc)
-	sortedArgNameSeq := argNameSeq[:]
-	sort.Slice(sortedArgNameSeq, orderRuleFunc)
-	return sortedArgNameSeq, isSorted
+	return CompareSliceOrder(argNames, sortedArgNames)
 }
 
 func (r *AzurermArgOrderRule) getBlockHead(block *hclsyntax.Block) string {
@@ -244,70 +279,19 @@ func (r *AzurermArgOrderRule) getBlockHead(block *hclsyntax.Block) string {
 	return strings.Join(heads, " ")
 }
 
-func (r *AzurermArgOrderRule) printBlockWithArgsSorted(runner tflint.Runner, block *hclsyntax.Block, sortedInnerLines []string) {
-	var blockLines []string
-	indent := "  "
-	labelLine := fmt.Sprintf("%s {", r.getBlockHead(block))
-	tailLine := "}"
-	blockLines = append(blockLines, labelLine)
-	for _, innerLine := range sortedInnerLines {
-		if innerLine != "" {
-			innerLine = indent + innerLine
-		}
-		blockLines = append(blockLines, innerLine)
+func CompareSliceOrder(real []string, expect []string) bool {
+	if len(real) < len(expect) {
+		return false
 	}
-	blockLines = append(blockLines, tailLine)
-	runner.EmitIssue(
-		r,
-		fmt.Sprintf("Arguments are not sorted in azurerm doc order, correct order is:\n%s", strings.Join(blockLines, "\n")),
-		block.DefRange(),
-	)
-	//log.Printf("\n%s", strings.Join(blockLines, "\n"))
-}
-
-func (r *AzurermArgOrderRule) buildAttrHclLines(attrName string, attrExpLinesGroup [][]string, maxArgNameLen int) []string {
-	var attrHclLines []string
-	template := fmt.Sprintf("%%-%ds = %%s", maxArgNameLen)
-	for _, lines := range attrExpLinesGroup {
-		for i, line := range lines {
-			if i == 0 {
-				line = fmt.Sprintf(template, attrName, line)
-			}
-			attrHclLines = append(attrHclLines, line)
+	i, j := 0, 0
+	for i < len(real) && j < len(expect) {
+		if real[i] == expect[j] {
+			j++
 		}
+		i++
 	}
-	return attrHclLines
-}
-
-func (r *AzurermArgOrderRule) buildNestedBlockHclLines(nestedBlockName string, innerLinesGroup [][]string) []string {
-	var nestedBlockHclLines []string
-	indent := "  "
-	labelLine := fmt.Sprintf("%s {", nestedBlockName)
-	tailLine := "}"
-	sort.Slice(innerLinesGroup, func(i, j int) bool {
-		return strings.Join(innerLinesGroup[i], "") < strings.Join(innerLinesGroup[j], "")
-	})
-	for _, innerLines := range innerLinesGroup {
-		nestedBlockHclLines = append(nestedBlockHclLines, labelLine)
-		for _, innerLine := range innerLines {
-			if innerLine != "" {
-				innerLine = indent + innerLine
-			}
-			nestedBlockHclLines = append(nestedBlockHclLines, innerLine)
-		}
-		nestedBlockHclLines = append(nestedBlockHclLines, tailLine)
+	if j == len(expect) {
+		return true
 	}
-	return nestedBlockHclLines
-}
-
-func (r *AzurermArgOrderRule) getMaxStrLen(strSlice []string) int {
-	maxStrLen := 0
-	if len(strSlice) > 0 {
-		for _, str := range strSlice {
-			if len(str) > maxStrLen {
-				maxStrLen = len(str)
-			}
-		}
-	}
-	return maxStrLen
+	return false
 }

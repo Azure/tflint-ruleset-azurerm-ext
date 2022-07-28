@@ -5,7 +5,7 @@ type RootBlockType string
 const (
 	Provider   RootBlockType = "provider"
 	Resource   RootBlockType = "resource"
-	DataSource RootBlockType = "datasource"
+	DataSource RootBlockType = "data"
 )
 
 var RootBlockTypes = map[RootBlockType]bool{Provider: true, Resource: true, DataSource: true}
