@@ -259,16 +259,23 @@ resource "azurerm_virtual_network" "vnet" {
 			Name: "5. dynamic block",
 			Content: `
 resource "azurerm_container_group" "example" {
-  location = "West Europe"
-  name     = "example-resources"
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
 
-  dynamic "setting" {
+  dynamic "container" {
     content {
-      namespace = setting.value["namespace"]
-      name 		= setting.value["name"]
-      value 	= setting.value["value"]
+      name   = container.value["name"]
+      image  = container.value["image"]
+      cpu 	 = container.value["cpu"]
+      ports {
+	    port     = 443
+	    protocol = "TCP"
+      }
+      memory = container.value["memory"]
     }
-	for_each = var.settings
+	for_each = var.containers
   }
 }`,
 			Expected: helper.Issues{
@@ -276,18 +283,24 @@ resource "azurerm_container_group" "example" {
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
 content {
-  name      = setting.value["name"]
-  namespace = setting.value["namespace"]
-  value     = setting.value["value"]
+  cpu 	 = container.value["cpu"]
+  image  = container.value["image"]
+  memory = container.value["memory"]
+  name   = container.value["name"]
+
+  ports {
+	port     = 443
+	protocol = "TCP"
+  }
 }`,
 					Range: hcl.Range{
 						Filename: "config.tf",
 						Start: hcl.Pos{
-							Line:   7,
+							Line:   9,
 							Column: 5,
 						},
 						End: hcl.Pos{
-							Line:   7,
+							Line:   9,
 							Column: 12,
 						},
 					},
@@ -295,24 +308,66 @@ content {
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-dynamic "setting" {
-  for_each = var.settings
+dynamic "container" {
+  for_each = var.containers
 
   content {
-    name      = setting.value["name"]
-    namespace = setting.value["namespace"]
-    value     = setting.value["value"]
+    cpu 	 = container.value["cpu"]
+    image  = container.value["image"]
+    memory = container.value["memory"]
+    name   = container.value["name"]
+
+    ports {
+      port     = 443
+	  protocol = "TCP"
+    }
   }
 }`,
 					Range: hcl.Range{
 						Filename: "config.tf",
 						Start: hcl.Pos{
-							Line:   6,
+							Line:   8,
 							Column: 3,
 						},
 						End: hcl.Pos{
-							Line:   6,
-							Column: 20,
+							Line:   8,
+							Column: 22,
+						},
+					},
+				},
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+resource "azurerm_container_group" "example" {
+  dynamic "container" {
+    for_each = var.containers
+
+    content {
+      cpu 	 = container.value["cpu"]
+      image  = container.value["image"]
+      memory = container.value["memory"]
+      name   = container.value["name"]
+
+      ports {
+        port     = 443
+	    protocol = "TCP"
+      }
+    }
+  }
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+}`,
+					Range: hcl.Range{
+						Filename: "config.tf",
+						Start: hcl.Pos{
+							Line:   2,
+							Column: 1,
+						},
+						End: hcl.Pos{
+							Line:   2,
+							Column: 45,
 						},
 					},
 				},

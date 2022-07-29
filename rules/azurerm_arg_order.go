@@ -163,12 +163,21 @@ func (r *AzurermArgOrderRule) getArgHclTxts(runner tflint.Runner, block *hclsynt
 		argHclTxtsGroups[attrName] = append(argHclTxtsGroups[attrName], hclTxt)
 	}
 	for _, nestedBlock := range block.Body.Blocks {
-		nestedBlockName := r.getBlockHead(nestedBlock)
-		hclTxt, subErr := r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type))
+		nestedBlockNameForSort := r.getBlockHead(nestedBlock)
+		var hclTxt string
+		var subErr error
+		if nestedBlock.Type == "dynamic" {
+			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Labels[0]))
+			nestedBlockNameForSort = nestedBlock.Labels[0]
+		} else if block.Type == "dynamic" && nestedBlock.Type == "content" {
+			hclTxt, subErr = r.visitBlock(runner, nestedBlock, parentBlockNames)
+		} else {
+			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type))
+		}
 		if subErr != nil {
 			err = multierror.Append(err, subErr)
 		}
-		argHclTxtsGroups[nestedBlockName] = append(argHclTxtsGroups[nestedBlockName], hclTxt)
+		argHclTxtsGroups[nestedBlockNameForSort] = append(argHclTxtsGroups[nestedBlockNameForSort], hclTxt)
 	}
 	for argName, hclTxtsGroups := range argHclTxtsGroups {
 		argHclTxts[argName] = strings.Join(hclTxtsGroups, "\n")
