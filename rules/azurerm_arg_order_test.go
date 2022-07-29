@@ -112,25 +112,6 @@ resource "azurerm_container_group" "example" {
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-ports {
-  port     = 443
-  protocol = "TCP"
-}`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   7,
-							Column: 5,
-						},
-						End: hcl.Pos{
-							Line:   7,
-							Column: 10,
-						},
-					},
-				},
-				{
-					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
 container {
   cpu    = "0.5"
   image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
@@ -282,62 +263,6 @@ resource "azurerm_container_group" "example" {
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-content {
-  cpu 	 = container.value["cpu"]
-  image  = container.value["image"]
-  memory = container.value["memory"]
-  name   = container.value["name"]
-
-  ports {
-	port     = 443
-	protocol = "TCP"
-  }
-}`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   9,
-							Column: 5,
-						},
-						End: hcl.Pos{
-							Line:   9,
-							Column: 12,
-						},
-					},
-				},
-				{
-					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-dynamic "container" {
-  for_each = var.containers
-
-  content {
-    cpu 	 = container.value["cpu"]
-    image  = container.value["image"]
-    memory = container.value["memory"]
-    name   = container.value["name"]
-
-    ports {
-      port     = 443
-	  protocol = "TCP"
-    }
-  }
-}`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   8,
-							Column: 3,
-						},
-						End: hcl.Pos{
-							Line:   8,
-							Column: 22,
-						},
-					},
-				},
-				{
-					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
 resource "azurerm_container_group" "example" {
   dynamic "container" {
     for_each = var.containers
@@ -430,53 +355,6 @@ resource "azurerm_resource_group" "example" {
 						End: hcl.Pos{
 							Line:   2,
 							Column: 44,
-						},
-					},
-				},
-				{
-					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-container {
-  cpu    = "0.5"
-  image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
-  memory = "1.5"
-  name   = "hello-world"
-
-  ports {
-    port     = 443
-    protocol = "TCP"
-  }
-}`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   15,
-							Column: 3,
-						},
-						End: hcl.Pos{
-							Line:   15,
-							Column: 12,
-						},
-					},
-				},
-				{
-					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
-container {
-  cpu    = "0.5"
-  image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
-  memory = "1.5"
-  name   = "sidecar"
-}`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   27,
-							Column: 3,
-						},
-						End: hcl.Pos{
-							Line:   27,
-							Column: 12,
 						},
 					},
 				},

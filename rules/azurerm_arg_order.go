@@ -5,6 +5,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
+	"github.com/terraform-linters/tflint-plugin-sdk/helper"
 	"sort"
 	"strings"
 
@@ -87,20 +88,24 @@ func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyn
 	if azBlock == nil {
 		return nil
 	}
+	issue := new(helper.Issue)
 	parentBlockNames := []string{azBlock.Type, azBlock.Labels[0]}
 	if provider.GetArgSchema(parentBlockNames) == nil {
 		return nil
 	}
-	_, err := r.visitBlock(runner, azBlock, parentBlockNames)
+	_, err := r.visitBlock(runner, azBlock, parentBlockNames, issue)
+	if issue.Message != "" {
+		runner.EmitIssue(issue.Rule, issue.Message, issue.Range)
+	}
 	return err
 }
 
-func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) (string, error) {
+func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string, issue *helper.Issue) (string, error) {
 	if block == nil {
 		return "", nil
 	}
 	argSchemas := provider.GetArgSchema(parentBlockNames)
-	argHclTxts, err := r.getArgHclTxts(runner, block, parentBlockNames)
+	argHclTxts, err := r.getArgHclTxts(runner, block, parentBlockNames, issue)
 	if err != nil {
 		return "", err
 	}
@@ -131,11 +136,9 @@ func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.
 	}
 	sortedBlockHclTxt = string(hclwrite.Format([]byte(sortedBlockHclTxt)))
 	if !r.checkArgOrder(block, sortedArgNames) {
-		runner.EmitIssue(
-			r,
-			fmt.Sprintf("Arguments are not sorted in azurerm doc order, correct order is:\n%s", sortedBlockHclTxt),
-			block.DefRange(),
-		)
+		issue.Rule = r
+		issue.Message = fmt.Sprintf("Arguments are not sorted in azurerm doc order, correct order is:\n%s", sortedBlockHclTxt)
+		issue.Range = block.DefRange()
 	}
 	return sortedBlockHclTxt, err
 }
@@ -151,7 +154,7 @@ func (r *AzurermArgOrderRule) visitAttr(runner tflint.Runner, attr *hclsyntax.At
 }
 
 func (r *AzurermArgOrderRule) getArgHclTxts(runner tflint.Runner, block *hclsyntax.Block,
-	parentBlockNames []string) (map[string]string, error) {
+	parentBlockNames []string, issue *helper.Issue) (map[string]string, error) {
 	var err error
 	argHclTxtsGroups := make(map[string][]string)
 	argHclTxts := make(map[string]string)
@@ -167,12 +170,12 @@ func (r *AzurermArgOrderRule) getArgHclTxts(runner tflint.Runner, block *hclsynt
 		var hclTxt string
 		var subErr error
 		if nestedBlock.Type == "dynamic" {
-			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Labels[0]))
+			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Labels[0]), issue)
 			nestedBlockNameForSort = nestedBlock.Labels[0]
 		} else if block.Type == "dynamic" && nestedBlock.Type == "content" {
-			hclTxt, subErr = r.visitBlock(runner, nestedBlock, parentBlockNames)
+			hclTxt, subErr = r.visitBlock(runner, nestedBlock, parentBlockNames, issue)
 		} else {
-			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type))
+			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type), issue)
 		}
 		if subErr != nil {
 			err = multierror.Append(err, subErr)
