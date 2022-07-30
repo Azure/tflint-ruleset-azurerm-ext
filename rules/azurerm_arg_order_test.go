@@ -26,7 +26,7 @@ resource "azurerm_container_group" "example" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
@@ -65,7 +65,7 @@ resource "azurerm_container_group" "example" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
@@ -111,7 +111,7 @@ resource "azurerm_container_group" "example" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 container {
   cpu    = "0.5"
   image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
@@ -173,7 +173,7 @@ resource "azurerm_virtual_network" "vnet" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_virtual_network" "vnet" {
   count = 4
   
@@ -204,7 +204,7 @@ resource "azurerm_virtual_network" "vnet" {
 				},
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_virtual_network" "vnet" {
   for_each = local.subnet_ids
 
@@ -262,7 +262,7 @@ resource "azurerm_container_group" "example" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
   dynamic "container" {
     for_each = var.containers
@@ -341,7 +341,7 @@ resource "azurerm_container_group" "example" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_resource_group" "example" {
   location = "West Europe"
   name     = "example-resources"
@@ -360,7 +360,7 @@ resource "azurerm_resource_group" "example" {
 				},
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
   container {
     cpu    = "0.5"
@@ -417,7 +417,7 @@ data "azurerm_resources" "example" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 data "azurerm_resources" "example" {
   required_tags = {
     environment = "production"
@@ -438,7 +438,7 @@ provider "azurerm" {
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
-					Message: `Arguments are not sorted in azurerm doc order, correct order is:
+					Message: `Arguments are expected to be sorted in following order:
 provider "azurerm" {
   features {}
 

@@ -2,20 +2,20 @@
   "issues": [
     {
       "rule": {
-        "name": "azurerm_virtual_machine_invalid_vm_size",
-        "severity": "error",
-        "link": "https://github.com/terraform-linters/tflint-ruleset-azurerm/blob/v0.17.0/docs/rules/azurerm_virtual_machine_invalid_vm_size.md"
+        "name": "azurerm_arg_order",
+        "severity": "info",
+        "link": "https://github.com/terraform-linters/tflint-ruleset-azurerm-ext/blob/v0.0.1/docs/rules/azurerm_arg_order.md"
       },
-      "message": "\"Standard_DS1_v3\" is an invalid value as vm_size",
+      "message": "Arguments are expected to be sorted in following order:\nresource \"azurerm_container_group\" \"example\" {\n  container {\n    cpu    = \"0.5\"\n    image  = \"mcr.microsoft.com/azuredocs/aci-helloworld:latest\"\n    memory = \"1.5\"\n    name   = \"hello-world\"\n\n    ports {\n      port     = 443\n      protocol = \"TCP\"\n    }\n  }\n  container {\n    cpu    = \"0.5\"\n    image  = \"mcr.microsoft.com/azuredocs/aci-tutorial-sidecar\"\n    memory = \"1.5\"\n    name   = \"sidecar\"\n  }\n  location            = azurerm_resource_group.example.location\n  name                = \"example-continst\"\n  os_type             = \"Linux\"\n  resource_group_name = azurerm_resource_group.example.name\n\n  dns_name_label  = \"aci-label\"\n  ip_address_type = \"Public\"\n  tags = {\n    environment = \"testing\"\n  }\n\n  depends_on = [\n    azurerm_resource_group.example\n  ]\n}",
       "range": {
         "filename": "main.tf",
         "start": {
-          "line": 3,
-          "column": 25
+          "line": 1,
+          "column": 1
         },
         "end": {
-          "line": 3,
-          "column": 42
+          "line": 1,
+          "column": 45
         }
       },
       "callers": []

@@ -37,7 +37,7 @@ func (r *AzurermArgOrderRule) Enabled() bool {
 
 // Severity returns the rule severity
 func (r *AzurermArgOrderRule) Severity() tflint.Severity {
-	return tflint.WARNING
+	return tflint.NOTICE
 }
 
 // Link returns the rule reference link
@@ -137,7 +137,7 @@ func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.
 	sortedBlockHclTxt = string(hclwrite.Format([]byte(sortedBlockHclTxt)))
 	if !r.checkArgOrder(block, sortedArgNames) {
 		issue.Rule = r
-		issue.Message = fmt.Sprintf("Arguments are not sorted in azurerm doc order, correct order is:\n%s", sortedBlockHclTxt)
+		issue.Message = fmt.Sprintf("Arguments are expected to be sorted in following order:\n%s", sortedBlockHclTxt)
 		issue.Range = block.DefRange()
 	}
 	return sortedBlockHclTxt, err
