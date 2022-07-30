@@ -1,2 +1,2 @@
 cd ./terraform-provider-azurerm
-git pull
+git pull origin main
