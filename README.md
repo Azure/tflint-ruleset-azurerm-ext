@@ -21,7 +21,7 @@ You can easily install the built plugin with the following:
 $ make install
 ```
 
-To utilize the lastest Azure API info (this may cause incompatability with current plugin version):
+To utilize the lastest Azure API info (this may cause incompatibility with current plugin version):
 
 ```
 $ make updateSubmodule
