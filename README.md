@@ -21,6 +21,13 @@ You can easily install the built plugin with the following:
 $ make install
 ```
 
+To utilize the lastest Azure API info (this may cause incompatability with current plugin version):
+
+```
+$ make updateSubmodule
+$ make install
+```
+
 Note that if you install the plugin with make install, you must omit the `version` and `source` attributes in `.tflint.hcl`:
 
 ```hcl
