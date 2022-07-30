@@ -26,5 +26,6 @@ tools:
 
 updateSubmodule:
 	git submodule update --init --recursive
+	sh scripts/updateSubmodule.sh
 
 .PHONY: test e2e build install lint tools updateSubmodule
