@@ -178,7 +178,7 @@ func (r *AzurermArgOrderRule) getArgGrps(block *hclsyntax.Block, argSchemas map[
 		arg := Arg{
 			Name:      nestedBlockName,
 			SortField: sortField,
-			Range:     hcl.Range{},
+			Range:     nestedBlock.Range(),
 			Block:     nestedBlock,
 		}
 		if IsHeadMeta(nestedBlockName) {

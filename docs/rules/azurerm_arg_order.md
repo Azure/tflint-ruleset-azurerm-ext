@@ -2,7 +2,7 @@
 
 Recommend proper argument order within azurerm provider/resource/data blocks
 The arguments are split into the following types:
-head-meta (for-each/count, provider), required-az, optional-az, non-az-or-meta (the arguments of dynamic block and for future use), tail-meta (dynamic, lifecycle, depends_on)
+head-meta (for-each/count, provider), required-attr, optional-attr, non-az-attr, required-block, optional-block, non-az-block (the arguments of dynamic/meta block or the block with args updated), tail-meta (lifecycle, depends_on)
 The arguments with different types would be sorted in the order above and split by a brank line, 
 while the arguments with the same type would be sorted in alphabetic order.
 
