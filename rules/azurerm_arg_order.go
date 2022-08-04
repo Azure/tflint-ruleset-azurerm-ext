@@ -209,9 +209,11 @@ func (r *AzurermArgOrderRule) getArgGrps(block *hclsyntax.Block, argSchemas map[
 			return nonMetaArgs[i].SortField < nonMetaArgs[j].SortField
 		})
 	}
-	argGrps := [][]Arg{headMetaArgs}
-	argGrps = append(argGrps, nonMetaArgGrps...)
-	argGrps = append(argGrps, tailMetaArgs)
+	attrs := append(requiredAzAttrs, optionalAzAttrs...)
+	attrs = append(attrs, nonAzAttrs...)
+	nestedBlocks := append(requiredAzNestedBlocks, optionalAzNestedBlocks...)
+	nestedBlocks = append(nestedBlocks, nonAzNestedBlocks...)
+	argGrps := [][]Arg{headMetaArgs, attrs, nestedBlocks, tailMetaArgs}
 	return argGrps
 }
 

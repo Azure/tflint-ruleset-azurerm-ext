@@ -94,7 +94,6 @@ resource "azurerm_container_group" "example" {
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
-
   dns_name_label      = "aci-label"
   ip_address_type     = "Public"
   tags                = {
@@ -107,7 +106,6 @@ resource "azurerm_container_group" "example" {
     memory = "1.5"
     name   = "sidecar"
   }
-
   diagnostics {
     log_analytics {
       workspace_id  = "test"
@@ -225,7 +223,6 @@ resource "azurerm_container_group" "example" {
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
-
   dns_name_label  = "aci-label"
   ip_address_type = "Public"
   tags = {
@@ -258,7 +255,6 @@ resource "azurerm_container_group" "example" {
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
-
   dns_name_label  = "aci-label"
   ip_address_type = "Public"
   tags = {
@@ -322,7 +318,6 @@ resource "azurerm_container_group" "example" {
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
-
   dns_name_label      = "aci-label"
   ip_address_type     = "Public"
   tags = {
@@ -411,7 +406,6 @@ resource "azurerm_kubernetes_cluster" "main" {
       vm_size = var.agents_size
     }
   }
-  
   dynamic "azure_active_directory_role_based_access_control" {
     for_each = var.enable_role_based_access_control && var.rbac_aad_managed ? ["rbac"] : []
 
@@ -426,8 +420,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     for_each = var.client_id == "" || var.client_secret == "" ? ["identity"] : []
 
     content {
-      type = var.identity_type      
-
+      type = var.identity_type
       identity_ids = var.identity_ids
     }
   }
@@ -502,7 +495,6 @@ resource "azurerm_container_group" "example" {
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
-
   dns_name_label      = "aci-label"
   ip_address_type     = "Public"
   tags                = {

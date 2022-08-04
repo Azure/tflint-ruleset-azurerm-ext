@@ -2,7 +2,7 @@
 
 Recommend proper argument order within azurerm provider/resource/data blocks
 The arguments are split into the following types:
-head-meta (for-each/count, provider), required-attr, optional-attr, non-az-attr, required-block, optional-block, non-az-block (the arguments of dynamic/meta block or the block with args updated), tail-meta (lifecycle, depends_on)
+head-meta (for-each/count, provider), attr(required-attr, optional-attr, non-az-attr(the deprecated attr)), block(required-block, optional-block, non-az-block (the dynamic/meta block or the deprecated block)), tail-meta (lifecycle, depends_on)
 The arguments with different types would be sorted in the order above and split by a brank line, 
 while the arguments with the same type would be sorted in alphabetic order.
 
@@ -10,16 +10,6 @@ while the arguments with the same type would be sorted in alphabetic order.
 
 ```hcl
 resource "azurerm_container_group" "example" {
-  name                = "example-continst"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
-  ip_address_type     = "Public"
-  dns_name_label      = "aci-label"
-  os_type             = "Linux"
-  depends_on          = [
-    azurerm_resource_group.example
-  ]
-
   container {
     name   = "hello-world"
     image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
@@ -31,13 +21,21 @@ resource "azurerm_container_group" "example" {
           protocol = "TCP"
     }
   }
-
   container {
     name   = "sidecar"
     image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
     cpu    = "0.5"
     memory = "1.5"
   }
+  name                = "example-continst"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+  ip_address_type     = "Public"
+  dns_name_label      = "aci-label"
+  os_type             = "Linux"
+  depends_on          = [
+    azurerm_resource_group.example
+  ]
 
   tags = {
     environment = "testing"
@@ -51,6 +49,16 @@ $ tflint
 
 Notice: Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags = {
+    environment = "testing"
+  }
+  
   container {
     cpu    = "0.5"
     image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
@@ -67,16 +75,6 @@ resource "azurerm_container_group" "example" {
     image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
     memory = "1.5"
     name   = "sidecar"
-  }
-  location            = azurerm_resource_group.example.location
-  name                = "example-continst"
-  os_type             = "Linux"
-  resource_group_name = azurerm_resource_group.example.name
-
-  dns_name_label  = "aci-label"
-  ip_address_type = "Public"
-  tags = {
-    environment = "testing"
   }
 
   depends_on = [
