@@ -58,7 +58,7 @@ resource "azurerm_container_group" "example" {
   tags = {
     environment = "testing"
   }
-  
+
   container {
     cpu    = "0.5"
     image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
