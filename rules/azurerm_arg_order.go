@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"github.com/terraform-linters/tflint-plugin-sdk/helper"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -93,38 +94,36 @@ func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyn
 	if provider.GetArgSchema(parentBlockNames) == nil {
 		return nil
 	}
-	_, err := r.visitBlock(runner, azBlock, parentBlockNames, issue)
-	if issue.Message != "" {
-		runner.EmitIssue(issue.Rule, issue.Message, issue.Range)
+	r.visitBlock(runner, azBlock, parentBlockNames, issue)
+	if !IsIssueEmpty(issue) {
+		return runner.EmitIssue(issue.Rule, issue.Message, issue.Range)
 	}
-	return err
+	return nil
 }
 
-func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string, issue *helper.Issue) (string, error) {
-	if block == nil {
-		return "", nil
-	}
+func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string, issue *helper.Issue) string {
+	file, _ := runner.GetFile(block.Range().Filename)
 	argSchemas := provider.GetArgSchema(parentBlockNames)
-	argHclTxts, err := r.getArgHclTxts(runner, block, parentBlockNames, issue)
-	if err != nil {
-		return "", err
-	}
-	var argNames, sortedArgHclTxts, sortedArgNames []string
-	for argName := range argHclTxts {
-		argNames = append(argNames, argName)
-	}
-	localSortedArgNameGrps := r.getSortedArgNames(argNames, argSchemas)
+	argGrps := r.getArgGrps(block, argSchemas)
 	isGapNeeded := false
-	for _, localSortedArgNames := range localSortedArgNameGrps {
-		if len(localSortedArgNames) == 0 {
+	var sortedArgHclTxts []string
+	for _, args := range argGrps {
+		if len(args) == 0 {
 			continue
 		}
-		sortedArgNames = append(sortedArgNames, localSortedArgNames...)
 		if isGapNeeded {
 			sortedArgHclTxts = append(sortedArgHclTxts, "")
 		}
-		for _, argName := range localSortedArgNames {
-			sortedArgHclTxts = append(sortedArgHclTxts, argHclTxts[argName])
+		for _, arg := range args {
+			if arg.Block != nil {
+				if arg.Name == "content" && block.Type == "dynamic" {
+					sortedArgHclTxts = append(sortedArgHclTxts, r.visitBlock(runner, arg.Block, parentBlockNames, issue))
+				} else {
+					sortedArgHclTxts = append(sortedArgHclTxts, r.visitBlock(runner, arg.Block, append(parentBlockNames, arg.Name), issue))
+				}
+			} else {
+				sortedArgHclTxts = append(sortedArgHclTxts, string(arg.Range.SliceBytes(file.Bytes)))
+			}
 		}
 		isGapNeeded = true
 	}
@@ -135,131 +134,103 @@ func (r *AzurermArgOrderRule) visitBlock(runner tflint.Runner, block *hclsyntax.
 		sortedBlockHclTxt = fmt.Sprintf("%s {\n%s\n}", r.getBlockHead(block), sortedBlockHclTxt)
 	}
 	sortedBlockHclTxt = string(hclwrite.Format([]byte(sortedBlockHclTxt)))
-	if !r.checkArgOrder(block, sortedArgNames) {
+	if !r.checkArgOrder(argGrps) {
 		issue.Rule = r
 		issue.Message = fmt.Sprintf("Arguments are expected to be sorted in following order:\n%s", sortedBlockHclTxt)
 		issue.Range = block.DefRange()
 	}
-	return sortedBlockHclTxt, err
+	return sortedBlockHclTxt
 }
 
-// todo: sort keys for map type attr or the elem of attr
-func (r *AzurermArgOrderRule) visitAttr(runner tflint.Runner, attr *hclsyntax.Attribute) (string, error) {
-	file, err := runner.GetFile(attr.Range().Filename)
-	if err != nil {
-		return "", err
-	}
-	attrHclTxt := string(attr.Range().SliceBytes(file.Bytes))
-	return attrHclTxt, nil
-}
-
-func (r *AzurermArgOrderRule) getArgHclTxts(runner tflint.Runner, block *hclsyntax.Block,
-	parentBlockNames []string, issue *helper.Issue) (map[string]string, error) {
-	var err error
-	argHclTxtsGroups := make(map[string][]string)
-	argHclTxts := make(map[string]string)
+func (r *AzurermArgOrderRule) getArgGrps(block *hclsyntax.Block, argSchemas map[string]*schema.Schema) [][]Arg {
+	var headMetaArgs, requiredAzAttrs, optionalAzAttrs, nonAzAttrs, requiredAzNestedBlocks, optionalAzNestedBlocks, nonAzNestedBlocks, tailMetaArgs []Arg
 	for attrName, attr := range block.Body.Attributes {
-		hclTxt, subErr := r.visitAttr(runner, attr)
-		if subErr != nil {
-			err = multierror.Append(err, subErr)
+		arg := Arg{
+			Name:      attrName,
+			SortField: attrName,
+			Range:     attr.SrcRange,
 		}
-		argHclTxtsGroups[attrName] = append(argHclTxtsGroups[attrName], hclTxt)
-	}
-	for _, nestedBlock := range block.Body.Blocks {
-		nestedBlockNameForSort := r.getBlockHead(nestedBlock)
-		var hclTxt string
-		var subErr error
-		if nestedBlock.Type == "dynamic" {
-			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Labels[0]), issue)
-			nestedBlockNameForSort = nestedBlock.Labels[0]
-		} else if block.Type == "dynamic" && nestedBlock.Type == "content" {
-			hclTxt, subErr = r.visitBlock(runner, nestedBlock, parentBlockNames, issue)
+		if IsHeadMeta(attrName) {
+			headMetaArgs = append(headMetaArgs, arg)
+		} else if IsTailMeta(attrName) {
+			tailMetaArgs = append(tailMetaArgs, arg)
 		} else {
-			hclTxt, subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type), issue)
-		}
-		if subErr != nil {
-			err = multierror.Append(err, subErr)
-		}
-		argHclTxtsGroups[nestedBlockNameForSort] = append(argHclTxtsGroups[nestedBlockNameForSort], hclTxt)
-	}
-	for argName, hclTxtsGroups := range argHclTxtsGroups {
-		argHclTxts[argName] = strings.Join(hclTxtsGroups, "\n")
-	}
-	return argHclTxts, err
-}
-
-func (r *AzurermArgOrderRule) getSortedArgNames(argNames []string, argSchemas map[string]*schema.Schema) [][]string {
-	getSortedAzArgNamesByOptionality := func(isRequired bool) []string {
-		var sortedArgNames []string
-		for _, argName := range argNames {
-			argSchema, isAzArg := argSchemas[argName]
-			if !isAzArg || argSchema.Required != isRequired {
-				continue
-			}
-			sortedArgNames = append(sortedArgNames, argName)
-		}
-		sort.Strings(sortedArgNames)
-		return sortedArgNames
-	}
-	sortedRequiredAzArgNames := getSortedAzArgNamesByOptionality(true)
-	sortedOptionalAzArgNames := getSortedAzArgNamesByOptionality(false)
-	var nonAzArgNames []string
-	for _, argName := range argNames {
-		if _, isAzArg := argSchemas[argName]; !isAzArg {
-			nonAzArgNames = append(nonAzArgNames, argName)
-		}
-	}
-	sortedHeadMetaArgNames, sortedNonAzOrMetaArgNames, sortedTailMetaArgNames := r.getSortedNonAzArgNames(nonAzArgNames)
-	return [][]string{sortedHeadMetaArgNames, sortedRequiredAzArgNames, sortedOptionalAzArgNames, sortedNonAzOrMetaArgNames, sortedTailMetaArgNames}
-}
-
-func (r *AzurermArgOrderRule) getSortedNonAzArgNames(nonAzArgNames []string) ([]string, []string, []string) {
-	headMetaArgPriority := map[string]int{"for_each": 1, "count": 1, "provider": 0}
-	tailMetaArgPriority := map[string]int{"lifecycle": 1, "depends_on": 0}
-	var headMetaArgNames, nonAzOrMetaArgNames, tailMetaArgNames, dynamicBlockNames []string
-	for _, argName := range nonAzArgNames {
-		if _, isHeadMeta := headMetaArgPriority[argName]; isHeadMeta {
-			headMetaArgNames = append(headMetaArgNames, argName)
-		} else if _, isTailMeta := tailMetaArgPriority[argName]; isTailMeta {
-			tailMetaArgNames = append(tailMetaArgNames, argName)
-		} else {
-			if strings.Split(argName, " ")[0] == "dynamic" {
-				dynamicBlockNames = append(dynamicBlockNames, argName)
+			if attrSchema, isAzAttr := argSchemas[attrName]; isAzAttr {
+				if attrSchema.Required {
+					requiredAzAttrs = append(requiredAzAttrs, arg)
+				} else {
+					optionalAzAttrs = append(optionalAzAttrs, arg)
+				}
 			} else {
-				nonAzOrMetaArgNames = append(nonAzOrMetaArgNames, argName)
+				nonAzAttrs = append(nonAzAttrs, arg)
 			}
 		}
 	}
-	sort.Slice(headMetaArgNames, func(i, j int) bool {
-		return headMetaArgPriority[headMetaArgNames[i]] < headMetaArgPriority[headMetaArgNames[j]]
+	for _, nestedBlock := range block.Body.Blocks {
+		var nestedBlockName, sortField string
+		if nestedBlock.Type == "dynamic" {
+			nestedBlockName = nestedBlock.Labels[0]
+			sortField = strings.Join(nestedBlock.Labels, "")
+		} else {
+			nestedBlockName = nestedBlock.Type
+			sortField = nestedBlock.Type
+		}
+		arg := Arg{
+			Name:      nestedBlockName,
+			SortField: sortField,
+			Range:     hcl.Range{},
+			Block:     nestedBlock,
+		}
+		if IsHeadMeta(nestedBlockName) {
+			headMetaArgs = append(headMetaArgs, arg)
+		} else if IsTailMeta(nestedBlockName) {
+			tailMetaArgs = append(tailMetaArgs, arg)
+		} else {
+			if blockSchema, isAzNestedBlock := argSchemas[nestedBlockName]; isAzNestedBlock {
+				if blockSchema.Required {
+					requiredAzNestedBlocks = append(requiredAzNestedBlocks, arg)
+				} else {
+					optionalAzNestedBlocks = append(optionalAzNestedBlocks, arg)
+				}
+			} else {
+				nonAzNestedBlocks = append(nonAzNestedBlocks, arg)
+			}
+		}
+	}
+	sort.SliceStable(headMetaArgs, func(i, j int) bool {
+		return GetHeadMetaPriority(headMetaArgs[i].Name) > GetHeadMetaPriority(headMetaArgs[j].Name)
 	})
-	sort.Slice(tailMetaArgNames, func(i, j int) bool {
-		return tailMetaArgPriority[tailMetaArgNames[i]] < tailMetaArgPriority[tailMetaArgNames[j]]
+	sort.SliceStable(tailMetaArgs, func(i, j int) bool {
+		return GetTailMetaPriority(tailMetaArgs[i].Name) > GetTailMetaPriority(tailMetaArgs[j].Name)
 	})
-	sort.Strings(dynamicBlockNames)
-	sort.Strings(nonAzOrMetaArgNames)
-	tailMetaArgNames = append(dynamicBlockNames, tailMetaArgNames...)
-	return headMetaArgNames, nonAzOrMetaArgNames, tailMetaArgNames
+	nonMetaArgGrps := [][]Arg{requiredAzAttrs, optionalAzAttrs, nonAzAttrs, requiredAzNestedBlocks, optionalAzNestedBlocks, nonAzNestedBlocks}
+	for _, nonMetaArgs := range nonMetaArgGrps {
+		sort.SliceStable(nonMetaArgs, func(i, j int) bool {
+			return nonMetaArgs[i].SortField < nonMetaArgs[j].SortField
+		})
+	}
+	argGrps := [][]Arg{headMetaArgs}
+	argGrps = append(argGrps, nonMetaArgGrps...)
+	argGrps = append(argGrps, tailMetaArgs)
+	return argGrps
 }
 
-func (r *AzurermArgOrderRule) checkArgOrder(block *hclsyntax.Block, sortedArgNames []string) bool {
-	var argNames []string
-	var argStartPos []hcl.Pos
-	for attrName, attr := range block.Body.Attributes {
-		argNames = append(argNames, attrName)
-		argStartPos = append(argStartPos, attr.Range().Start)
-	}
-	for _, nestedBlock := range block.Body.Blocks {
-		argNames = append(argNames, r.getBlockHead(nestedBlock))
-		argStartPos = append(argStartPos, nestedBlock.Range().Start)
-	}
-	sort.Slice(argNames, func(i, j int) bool {
-		if argStartPos[i].Line == argStartPos[j].Line {
-			return argStartPos[i].Column < argStartPos[j].Column
+func (r *AzurermArgOrderRule) checkArgOrder(sortedArgGrps [][]Arg) bool {
+	var lastArgGrp, sortedArgs []Arg
+	isCorrectLayout := true
+	for _, argGrp := range sortedArgGrps {
+		if isCorrectLayout && len(lastArgGrp) > 0 && len(argGrp) > 0 {
+			if argGrp[0].Range.Start.Line-lastArgGrp[len(lastArgGrp)-1].Range.End.Line < 2 {
+				isCorrectLayout = false
+			}
 		}
-		return argStartPos[i].Line < argStartPos[j].Line
-	})
-	return CompareSliceOrder(argNames, sortedArgNames)
+		if len(argGrp) > 0 {
+			lastArgGrp = argGrp
+		}
+		sortedArgs = append(sortedArgs, argGrp...)
+	}
+	isCorrectLayout = isCorrectLayout && reflect.DeepEqual(sortedArgs, GetArgsWithOriginalOrder(sortedArgs))
+	return isCorrectLayout
 }
 
 func (r *AzurermArgOrderRule) getBlockHead(block *hclsyntax.Block) string {
@@ -268,21 +239,4 @@ func (r *AzurermArgOrderRule) getBlockHead(block *hclsyntax.Block) string {
 		heads = append(heads, fmt.Sprintf("\"%s\"", label))
 	}
 	return strings.Join(heads, " ")
-}
-
-func CompareSliceOrder(real []string, expect []string) bool {
-	if len(real) < len(expect) {
-		return false
-	}
-	i, j := 0, 0
-	for i < len(real) && j < len(expect) {
-		if real[i] == expect[j] {
-			j++
-		}
-		i++
-	}
-	if j == len(expect) {
-		return true
-	}
-	return false
 }

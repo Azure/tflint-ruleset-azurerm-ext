@@ -3,7 +3,6 @@ package rules
 import (
 	"testing"
 
-	hcl "github.com/hashicorp/hcl/v2"
 	"github.com/terraform-linters/tflint-plugin-sdk/helper"
 )
 
@@ -15,13 +14,23 @@ func Test_AzurermArgOrderRule(t *testing.T) {
 		Expected helper.Issues
 	}{
 		{
-			Name: "1. attr alphabetic order",
+			Name: "1. sorting args in alphabetic order",
 			Content: `
 resource "azurerm_container_group" "example" {
   os_type             = "Linux"
   name                = "example-continst"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
+
+  dns_config {
+    nameservers = []
+  }
+  diagnostics {
+    log_analytics {
+      workspace_id  = "test"
+      workspace_key = "test"
+    }
+  }
 }`,
 			Expected: helper.Issues{
 				{
@@ -32,24 +41,22 @@ resource "azurerm_container_group" "example" {
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
+
+  diagnostics {
+    log_analytics {
+      workspace_id  = "test"
+      workspace_key = "test"
+    }
+  }
+  dns_config {
+    nameservers = []
+  }
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   2,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   2,
-							Column: 45,
-						},
-					},
 				},
 			},
 		},
-
 		{
-			Name: "2. split and reorder of required and optional arg",
+			Name: "2. reorder of required and optional args",
 			Content: `
 resource "azurerm_container_group" "example" {
   location            = azurerm_resource_group.example.location
@@ -60,6 +67,22 @@ resource "azurerm_container_group" "example" {
   resource_group_name = azurerm_resource_group.example.name
   tags                = {
     environment = "testing"
+  }
+  
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+  diagnostics {
+    log_analytics {
+      workspace_id  = "test"
+      workspace_key = "test"
+    }
+  }
+  dns_config {
+    nameservers = []
   }
 }`,
 			Expected: helper.Issues{
@@ -77,22 +100,27 @@ resource "azurerm_container_group" "example" {
   tags                = {
     environment = "testing"
   }
+
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+
+  diagnostics {
+    log_analytics {
+      workspace_id  = "test"
+      workspace_key = "test"
+    }
+  }
+  dns_config {
+    nameservers = []
+  }
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   2,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   2,
-							Column: 45,
-						},
-					},
 				},
 			},
 		},
-
 		{
 			Name: "3. reorder of args in nested block",
 			Content: `
@@ -123,17 +151,6 @@ container {
     protocol = "TCP"
   }
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   3,
-							Column: 3,
-						},
-						End: hcl.Pos{
-							Line:   3,
-							Column: 12,
-						},
-					},
 				},
 			},
 		},
@@ -141,166 +158,296 @@ container {
 		{
 			Name: "4. Meta Arg",
 			Content: `
-resource "azurerm_virtual_network" "vnet" {
-  address_space       = ["10.0.0.0/16"]
+resource "azurerm_container_group" "example" {
+
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
   count               = 4
+  os_type             = "Linux"
+  provider            = azurerm.europe
+  resource_group_name = azurerm_resource_group.example.name
+
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags                = {
+    Name = "container ${count.index}"
+  }
   depends_on = [
     azurerm_resource_group.example
   ]
-  location            = azurerm_resource_group.example.location
-  name                = "myTFVnet"
-  resource_group_name = azurerm_resource_group.rg.name
 
-  tags = {
-    Name = "VM network ${count.index}"
+  lifecycle {
+    create_before_destroy = true
+  }
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
   }
 }
 
-resource "azurerm_virtual_network" "vnet" {
-  address_space       = ["10.0.0.0/16"]
+resource "azurerm_container_group" "example" {
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  for_each            = local.container_ids
+  os_type             = "Linux"
+  provider            = azurerm.europe
+  resource_group_name = azurerm_resource_group.example.name
+
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
   depends_on = [
     azurerm_resource_group.example
   ]
-  for_each            = local.subnet_ids
-  location            = azurerm_resource_group.example.location
-  name                = "myTFVnet"
-  resource_group_name = azurerm_resource_group.rg.name
-
   tags = {
-    Name = "VM network ${each.key}"
+    Name = "container ${each.key}"
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
   }
 }`,
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
-resource "azurerm_virtual_network" "vnet" {
-  count = 4
-  
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.example.location
-  name                = "myTFVnet"
-  resource_group_name = azurerm_resource_group.rg.name
+resource "azurerm_container_group" "example" {
+  count    = 4
+  provider = azurerm.europe
 
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+
+  dns_name_label  = "aci-label"
+  ip_address_type = "Public"
   tags = {
-    Name = "VM network ${count.index}"
+    Name = "container ${count.index}"
   }
   
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
   depends_on = [
     azurerm_resource_group.example
   ]
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   2,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   2,
-							Column: 42,
-						},
-					},
 				},
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
-resource "azurerm_virtual_network" "vnet" {
-  for_each = local.subnet_ids
+resource "azurerm_container_group" "example" {
+  for_each = local.container_ids
+  provider = azurerm.europe
 
-  address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.example.location
-  name                = "myTFVnet"
-  resource_group_name = azurerm_resource_group.rg.name
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
 
+  dns_name_label  = "aci-label"
+  ip_address_type = "Public"
   tags = {
-    Name = "VM network ${each.key}"
+    Name = "container ${each.key}"
   }
 
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
   depends_on = [
     azurerm_resource_group.example
   ]
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   17,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   17,
-							Column: 42,
-						},
-					},
 				},
 			},
 		},
-
 		{
-			Name: "5. dynamic block",
+			Name: "5. Gap between different types of args",
 			Content: `
 resource "azurerm_container_group" "example" {
+  count               = 4
+  provider            = azurerm.europe
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
-
-  dynamic "container" {
-    content {
-      name   = container.value["name"]
-      image  = container.value["image"]
-      cpu 	 = container.value["cpu"]
-      ports {
-	    port     = 443
-	    protocol = "TCP"
-      }
-      memory = container.value["memory"]
-    }
-	for_each = var.containers
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags = {
+    Name = "container ${count.index}"
   }
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+  depends_on = [
+    azurerm_resource_group.example
+  ]
 }`,
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
-  dynamic "container" {
-    for_each = var.containers
+  count    = 4
+  provider = azurerm.europe
 
-    content {
-      cpu 	 = container.value["cpu"]
-      image  = container.value["image"]
-      memory = container.value["memory"]
-      name   = container.value["name"]
-
-      ports {
-        port     = 443
-	    protocol = "TCP"
-      }
-    }
-  }
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.example.name
+
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags = {
+    Name = "container ${count.index}"
+  }
+
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+  depends_on = [
+    azurerm_resource_group.example
+  ]
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   2,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   2,
-							Column: 45,
-						},
-					},
+				},
+			},
+		},
+		{
+			Name: "6. dynamic block",
+			Content: `
+resource "azurerm_kubernetes_cluster" "main" {
+  dynamic "azure_active_directory_role_based_access_control" {
+    for_each = var.enable_role_based_access_control && var.rbac_aad_managed ? ["rbac"] : []
+    content {
+      admin_group_object_ids = var.rbac_aad_admin_group_object_ids
+      azure_rbac_enabled     = var.rbac_aad_azure_rbac_enabled
+      managed                = true
+      tenant_id              = var.rbac_aad_tenant_id
+    }
+  }
+  
+  dynamic "ingress_application_gateway" {
+    for_each = var.enable_ingress_application_gateway ? ["ingress_application_gateway"] : []
+
+    content {
+      gateway_name = var.ingress_application_gateway_name
+      gateway_id   = var.ingress_application_gateway_id
+      subnet_cidr  = var.ingress_application_gateway_subnet_cidr
+      subnet_id    = var.ingress_application_gateway_subnet_id
+    }
+  }
+
+  dynamic "identity" {
+    for_each = var.client_id == "" || var.client_secret == "" ? ["identity"] : []
+
+    content {
+      type = var.identity_type
+      identity_ids = var.identity_ids
+    }
+  }
+
+  default_node_pool {
+    name    = var.agents_pool_name
+    vm_size = var.agents_size
+  }
+
+  dynamic "default_node_pool" {
+    for_each = var.enable_auto_scaling == true ? [] : ["default_node_pool_manually_scaled"]
+
+    content {
+      vm_size = var.agents_size
+      name    = var.agents_pool_name
+    }
+  }
+}`,
+			Expected: helper.Issues{
+				{
+					Rule: NewAzurermArgOrderRule(),
+					Message: `Arguments are expected to be sorted in following order:
+resource "azurerm_kubernetes_cluster" "main" {
+  default_node_pool {
+    name    = var.agents_pool_name
+    vm_size = var.agents_size
+  }
+  dynamic "default_node_pool" {
+    for_each = var.enable_auto_scaling == true ? [] : ["default_node_pool_manually_scaled"]
+
+    content {
+      name    = var.agents_pool_name
+      vm_size = var.agents_size
+    }
+  }
+  
+  dynamic "azure_active_directory_role_based_access_control" {
+    for_each = var.enable_role_based_access_control && var.rbac_aad_managed ? ["rbac"] : []
+
+    content {
+      admin_group_object_ids = var.rbac_aad_admin_group_object_ids
+      azure_rbac_enabled     = var.rbac_aad_azure_rbac_enabled
+      managed                = true
+      tenant_id              = var.rbac_aad_tenant_id
+    }
+  }
+  dynamic "identity" {
+    for_each = var.client_id == "" || var.client_secret == "" ? ["identity"] : []
+
+    content {
+      type = var.identity_type      
+
+      identity_ids = var.identity_ids
+    }
+  }
+  dynamic "ingress_application_gateway" {
+    for_each = var.enable_ingress_application_gateway ? ["ingress_application_gateway"] : []
+
+    content {
+      gateway_id   = var.ingress_application_gateway_id
+      gateway_name = var.ingress_application_gateway_name
+      subnet_cidr  = var.ingress_application_gateway_subnet_cidr
+      subnet_id    = var.ingress_application_gateway_subnet_id
+    }
+  }
+}`,
 				},
 			},
 		},
 
 		{
-			Name: "6. common",
+			Name: "7. common",
 			Content: `
 resource "azurerm_resource_group" "example" {
   name     = "example-resources"
@@ -346,22 +493,22 @@ resource "azurerm_resource_group" "example" {
   location = "West Europe"
   name     = "example-resources"
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   2,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   2,
-							Column: 44,
-						},
-					},
 				},
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags                = {
+    environment = "testing"
+  }
+  
   container {
     cpu    = "0.5"
     image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
@@ -379,33 +526,12 @@ resource "azurerm_container_group" "example" {
     memory = "1.5"
     name   = "sidecar"
   }
-  location            = azurerm_resource_group.example.location
-  name                = "example-continst"
-  os_type             = "Linux"
-  resource_group_name = azurerm_resource_group.example.name
-
-  dns_name_label      = "aci-label"
-  ip_address_type     = "Public"
-  tags                = {
-    environment = "testing"
-  }
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   7,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   7,
-							Column: 45,
-						},
-					},
 				},
 			},
 		},
 		{
-			Name: "7. datasource",
+			Name: "8. datasource",
 			Content: `
 data "azurerm_resources" "example" {
   resource_group_name = "example-resources"
@@ -429,32 +555,21 @@ data "azurerm_resources" "example" {
 			},
 		},
 		{
-			Name: "8. provider",
+			Name: "9. provider",
 			Content: `
 provider "azurerm" {
-  client_id   = "temp"
   features {}
+  client_id = "temp"
 }`,
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
 provider "azurerm" {
+  client_id = "temp"
+  
   features {}
-
-  client_id   = "temp"
 }`,
-					Range: hcl.Range{
-						Filename: "config.tf",
-						Start: hcl.Pos{
-							Line:   2,
-							Column: 1,
-						},
-						End: hcl.Pos{
-							Line:   2,
-							Column: 19,
-						},
-					},
 				},
 			},
 		},
