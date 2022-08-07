@@ -5,10 +5,10 @@ name: lint
 on:
   push:
     branches:
-      - master
+      - delivery
   pull_request:
     branches:
-      - master
+      - delivery
 
 jobs:
   checks:
