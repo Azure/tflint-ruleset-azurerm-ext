@@ -7,7 +7,7 @@ e2e:
 	cd integration && go test && cd ../
 
 prepare:
-	git submodule update --init --recursive
+	git clone https://github.com/hashicorp/terraform-provider-azurerm.git
 	sh scripts/inject.sh
 	go mod tidy
 	go mod vendor
@@ -27,7 +27,7 @@ tools:
 	go install golang.org/x/lint/golint@latest
 
 updateSubmodule:
-	git submodule update --init --recursive
+	git clone https://github.com/hashicorp/terraform-provider-azurerm.git
 	sh scripts/updateSubmodule.sh
 
 .PHONY: test e2e build install lint tools updateSubmodule

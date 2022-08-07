@@ -1,4 +1,0 @@
-
-[submodule "terraform-provider-azurerm"]
-	path = terraform-provider-azurerm
-	url = https://github.com/hashicorp/terraform-provider-azurerm.git
