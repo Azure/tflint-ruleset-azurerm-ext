@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+// AzurermResourceTagRule checks whether the tags arg is specified if supported
 type AzurermResourceTagRule struct {
 	tflint.DefaultRule
 }
@@ -40,7 +41,7 @@ func (r *AzurermResourceTagRule) Link() string {
 	return project.ReferenceLink(r.Name())
 }
 
-// Check checks whether the arguments/attributes in a block are sorted in azure doc order
+// Check checks whether the tags arg is specified if supported
 func (r *AzurermResourceTagRule) Check(runner tflint.Runner) error {
 	files, err := runner.GetFiles()
 	if err != nil {

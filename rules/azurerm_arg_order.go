@@ -17,6 +17,7 @@ import (
 	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/project"
 )
 
+// AzurermArgOrderRule checks whether the arguments/attributes in a block are sorted in azure doc order
 type AzurermArgOrderRule struct {
 	tflint.DefaultRule
 }
