@@ -6,11 +6,13 @@ test:
 e2e:
 	cd integration && go test && cd ../
 
-build:
+prepare:
 	git submodule update --init --recursive
 	sh scripts/inject.sh
 	go mod tidy
-	go mod vendor 
+	go mod vendor
+	
+build:	prepare
 	go build
 
 install:build
