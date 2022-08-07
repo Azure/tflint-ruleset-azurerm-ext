@@ -6,8 +6,9 @@ test:
 e2e:
 	cd integration && go test && cd ../
 
-prepare:
+prepare:clean
 	git clone https://github.com/hashicorp/terraform-provider-azurerm.git
+	rm -rf terraform-provider-azurerm/.git
 	sh scripts/inject.sh
 	go mod tidy
 	go mod vendor
@@ -26,8 +27,7 @@ lint:
 tools:
 	go install golang.org/x/lint/golint@latest
 
-updateSubmodule:
-	git clone https://github.com/hashicorp/terraform-provider-azurerm.git
-	sh scripts/updateSubmodule.sh
+clean:
+	rm -rf ./terraform-provider-azurerm ./vendor
 
 .PHONY: test e2e build install lint tools updateSubmodule
