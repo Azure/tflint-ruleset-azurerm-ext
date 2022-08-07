@@ -63,22 +63,16 @@ func (r *AzurermArgOrderRule) Check(runner tflint.Runner) error {
 
 func (r *AzurermArgOrderRule) visitConfig(runner tflint.Runner, file *hcl.File) error {
 	body := file.Body.(*hclsyntax.Body)
-	if body == nil {
-		return nil
-	}
 	return r.visitModule(runner, body)
 }
 
 func (r *AzurermArgOrderRule) visitModule(runner tflint.Runner, module *hclsyntax.Body) error {
-	if module == nil {
-		return nil
-	}
 	var err error
 	for _, block := range module.Blocks {
 		rootBlockType := provider.RootBlockType(block.Type)
 		if _, isAzBlock := provider.RootBlockTypes[rootBlockType]; isAzBlock {
 			if subErr := r.visitAzBlock(runner, block); subErr != nil {
-				err = multierror.Append(subErr)
+				err = multierror.Append(err, subErr)
 			}
 		}
 	}
@@ -86,9 +80,6 @@ func (r *AzurermArgOrderRule) visitModule(runner tflint.Runner, module *hclsynta
 }
 
 func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyntax.Block) error {
-	if azBlock == nil {
-		return nil
-	}
 	issue := new(helper.Issue)
 	parentBlockNames := []string{azBlock.Type, azBlock.Labels[0]}
 	if provider.GetArgSchema(parentBlockNames) == nil {
