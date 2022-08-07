@@ -9,10 +9,10 @@ e2e:
 prepare:
 	git submodule update --init --recursive
 	sh scripts/inject.sh
-	go mod tidy
-	go mod vendor
 	
 build:	prepare
+	go mod tidy
+	go mod vendor
 	go build
 
 install:build
