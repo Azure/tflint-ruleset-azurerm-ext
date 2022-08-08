@@ -565,6 +565,12 @@ provider "azurerm" {
 				},
 			},
 		},
+		{
+			Name: "10. empty block",
+			Content: `
+resource "azurerm_container_group" "example" {}`,
+			Expected: helper.Issues{},
+		},
 	}
 
 	rule := NewAzurermArgOrderRule()

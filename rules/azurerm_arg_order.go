@@ -223,7 +223,9 @@ func (r *AzurermArgOrderRule) checkArgOrder(sortedArgGrps [][]Arg) bool {
 		}
 		sortedArgs = append(sortedArgs, argGrp...)
 	}
-	isCorrectLayout = isCorrectLayout && reflect.DeepEqual(sortedArgs, GetArgsWithOriginalOrder(sortedArgs))
+	if len(sortedArgs) > 0 {
+		isCorrectLayout = isCorrectLayout && reflect.DeepEqual(sortedArgs, GetArgsWithOriginalOrder(sortedArgs))
+	}
 	return isCorrectLayout
 }
 
