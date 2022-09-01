@@ -64,11 +64,13 @@ func (r *AzurermResourceTagRule) visitConfig(runner tflint.Runner, file *hcl.Fil
 func (r *AzurermResourceTagRule) visitModule(runner tflint.Runner, module *hclsyntax.Body) error {
 	var err error
 	for _, block := range module.Blocks {
+		var subErr error
 		switch provider.RootBlockType(block.Type) {
 		case provider.Resource:
-			if subErr := r.visitAzResource(runner, block); subErr != nil {
-				err = multierror.Append(err, subErr)
-			}
+			subErr = r.visitAzResource(runner, block)
+		}
+		if subErr != nil {
+			err = multierror.Append(err, subErr)
 		}
 	}
 	return err
@@ -80,37 +82,61 @@ func (r *AzurermResourceTagRule) visitAzResource(runner tflint.Runner, azBlock *
 	if argSchemas == nil {
 		return nil
 	}
-	r.visitBlock(runner, azBlock, parentBlockNames)
-	return nil
+	return r.visitBlock(runner, azBlock, parentBlockNames)
 }
 
 func (r *AzurermResourceTagRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
 	var err error
-	if block.Type != "dynamic" {
-		argSchemas := provider.GetArgSchema(parentBlockNames)
-		if _, isTagSupported := argSchemas["tags"]; isTagSupported {
-			if _, isTagSet := block.Body.Attributes["tags"]; !isTagSet {
-				nestedBlockSeq := ""
-				if len(parentBlockNames) > 2 {
-					nestedBlockSeq = fmt.Sprintf("nested block `%s` of ", strings.Join(parentBlockNames[2:], " "))
-				}
-				err = runner.EmitIssue(
-					r,
-					fmt.Sprintf("`tags` argument is not set but supported in %s%s `%s`", nestedBlockSeq, parentBlockNames[0], parentBlockNames[1]),
-					block.DefRange(),
-				)
-			}
+	switch block.Type {
+	case "dynamic":
+		err = r.handleDynamicBlock(runner, block, parentBlockNames)
+	default:
+		err = r.handleGeneralBlock(runner, block, parentBlockNames)
+	}
+	return err
+}
+
+func (r *AzurermResourceTagRule) getNestedBlockSeq(parentBlockNames []string) string {
+	nestedBlockSeq := ""
+	if len(parentBlockNames) > 2 {
+		nestedBlockSeq = fmt.Sprintf("nested block `%s` of ", strings.Join(parentBlockNames[2:], " "))
+	}
+	return nestedBlockSeq
+}
+
+func (r *AzurermResourceTagRule) handleDynamicBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
+	var err error
+	for _, nestedBlock := range block.Body.Blocks {
+		var subErr error
+		switch nestedBlock.Type {
+		case "content":
+			subErr = r.visitBlock(runner, nestedBlock, parentBlockNames)
 		}
+		if subErr != nil {
+			err = multierror.Append(err, subErr)
+		}
+	}
+	return err
+}
+
+func (r *AzurermResourceTagRule) handleGeneralBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
+	var err error
+	argSchemas := provider.GetArgSchema(parentBlockNames)
+	_, isTagSupported := argSchemas["tags"]
+	_, isTagSet := block.Body.Attributes["tags"]
+	if isTagSupported && !isTagSet {
+		err = runner.EmitIssue(
+			r,
+			fmt.Sprintf("`tags` argument is not set but supported in %s%s `%s`", r.getNestedBlockSeq(parentBlockNames), parentBlockNames[0], parentBlockNames[1]),
+			block.DefRange(),
+		)
 	}
 	for _, nestedBlock := range block.Body.Blocks {
 		var subErr error
-		if nestedBlock.Type == "dynamic" {
+		switch nestedBlock.Type {
+		case "dynamic":
 			subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Labels[0]))
-		} else if block.Type == "dynamic" {
-			if nestedBlock.Type == "content" {
-				subErr = r.visitBlock(runner, nestedBlock, parentBlockNames)
-			}
-		} else {
+		default:
 			subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type))
 		}
 		if subErr != nil {

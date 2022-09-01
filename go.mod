@@ -33,8 +33,8 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-azure-helpers v0.37.0 // indirect
-	github.com/hashicorp/go-azure-sdk v0.20220725.1163004 // indirect
+	github.com/hashicorp/go-azure-helpers v0.40.0 // indirect
+	github.com/hashicorp/go-azure-sdk v0.20220830.1105041 // indirect
 	github.com/hashicorp/go-checkpoint v0.5.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320 // indirect
@@ -65,7 +65,6 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/rickb777/date v1.12.5-0.20200422084442-6300e543c4d9 // indirect
 	github.com/rickb777/plural v1.2.0 // indirect
-	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/tombuildsstuff/giovanni v0.20.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
