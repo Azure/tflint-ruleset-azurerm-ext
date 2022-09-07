@@ -41,6 +41,8 @@ type Block struct {
 type ArgGrpType string
 
 const (
+	// the enumeration for argument group types
+
 	HeadMetaArgs           ArgGrpType = "headMetaArgs"
 	RequiredAzAttrs                   = "requiredAzAttrs"
 	OptionalAzAttrs                   = "optionalAzAttrs"
@@ -191,8 +193,8 @@ func (b *Block) addArg(argGrpType ArgGrpType, arg *Arg) {
 
 func (b *Block) getNestedBlocks() []*Block {
 	var args []*Arg
-	for _, name := range argGrpTypes {
-		args = append(args, b.ArgGrps[name].Args...)
+	for _, argGrpType := range argGrpTypes {
+		args = append(args, b.ArgGrps[argGrpType].Args...)
 	}
 	var nestedBlocks []*Block
 	for _, arg := range args {
@@ -220,9 +222,9 @@ func (b *Block) printSorted() string {
 func (b *Block) print() string {
 	isGapNeeded := false
 	var sortedArgTxts []string
-	sortedArgGrpNames := []ArgGrpType{HeadMetaArgs, Attrs, NestedBlocks, TailMetaArgs}
-	for _, name := range sortedArgGrpNames {
-		args := b.ArgGrps[name].Args
+	sortedArgGrpTypes := []ArgGrpType{HeadMetaArgs, Attrs, NestedBlocks, TailMetaArgs}
+	for _, argGrpType := range sortedArgGrpTypes {
+		args := b.ArgGrps[argGrpType].Args
 		if len(args) == 0 {
 			continue
 		}
@@ -252,14 +254,14 @@ func (b *Block) printArg(arg *Arg) string {
 }
 
 func (b *Block) sortArgGrps() {
-	for _, name := range argGrpTypes {
-		b.sortArgs(name)
+	for _, argGrpType := range argGrpTypes {
+		b.sortArgs(argGrpType)
 	}
 }
 
-func (b *Block) sortArgs(argGrpName ArgGrpType) {
-	args := b.ArgGrps[argGrpName].Args
-	switch argGrpName {
+func (b *Block) sortArgs(argGrpType ArgGrpType) {
+	args := b.ArgGrps[argGrpType].Args
+	switch argGrpType {
 	case HeadMetaArgs:
 		sort.Slice(args, func(i, j int) bool {
 			return GetHeadMetaPriority(args[i].Name) > GetHeadMetaPriority(args[j].Name)
@@ -313,53 +315,53 @@ func (b *Block) appendArg(argGrpType ArgGrpType, arg *Arg) {
 
 func (b *Block) isArgGrpsSorted() bool {
 	var lastGrp *ArgGrp
-	for _, name := range argGrpTypes {
-		if len(b.ArgGrps[name].Args) == 0 {
+	for _, argGrpType := range argGrpTypes {
+		if len(b.ArgGrps[argGrpType].Args) == 0 {
 			continue
 		}
-		if !b.ArgGrps[name].IsSorted {
+		if !b.ArgGrps[argGrpType].IsSorted {
 			return false
 		}
-		if lastGrp != nil && ComparePos(b.ArgGrps[name].Start, lastGrp.End) <= 0 {
+		if lastGrp != nil && ComparePos(b.ArgGrps[argGrpType].Start, lastGrp.End) <= 0 {
 			return false
 		}
-		lastGrp = b.ArgGrps[name]
+		lastGrp = b.ArgGrps[argGrpType]
 	}
 	return true
 }
 
 func (b *Block) isCorrectlySplit() bool {
-	names := []ArgGrpType{HeadMetaArgs, Attrs, NestedBlocks, TailMetaArgs}
+	argGrpTypes := []ArgGrpType{HeadMetaArgs, Attrs, NestedBlocks, TailMetaArgs}
 	var lastGrp *ArgGrp
-	for _, name := range names {
-		if len(b.ArgGrps[name].Args) == 0 {
+	for _, argGrpType := range argGrpTypes {
+		if len(b.ArgGrps[argGrpType].Args) == 0 {
 			continue
 		}
-		if lastGrp != nil && b.ArgGrps[name].Start.Line-lastGrp.End.Line < 2 {
+		if lastGrp != nil && b.ArgGrps[argGrpType].Start.Line-lastGrp.End.Line < 2 {
 			return false
 		}
-		lastGrp = b.ArgGrps[name]
+		lastGrp = b.ArgGrps[argGrpType]
 	}
 	return true
 }
 
 func (b *Block) mergeGeneralArgs() {
-	attrGrpNames := []ArgGrpType{RequiredAzAttrs, OptionalAzAttrs, NonAzAttrs}
-	b.mergeArgGrps(Attrs, attrGrpNames)
-	blockGrpNames := []ArgGrpType{RequiredAzNestedBlocks, OptionalAzNestedBlocks, NonAzNestedBlocks}
-	b.mergeArgGrps(NestedBlocks, blockGrpNames)
+	attrGrpTypes := []ArgGrpType{RequiredAzAttrs, OptionalAzAttrs, NonAzAttrs}
+	b.mergeArgGrps(Attrs, attrGrpTypes)
+	blockGrpTypes := []ArgGrpType{RequiredAzNestedBlocks, OptionalAzNestedBlocks, NonAzNestedBlocks}
+	b.mergeArgGrps(NestedBlocks, blockGrpTypes)
 }
 
-func (b *Block) mergeArgGrps(targetGrpName ArgGrpType, srcGrpNames []ArgGrpType) {
-	b.ArgGrps[targetGrpName] = new(ArgGrp)
-	for _, name := range srcGrpNames {
-		b.ArgGrps[targetGrpName].Args = append(b.ArgGrps[targetGrpName].Args, b.ArgGrps[name].Args...)
-		if ComparePos(b.ArgGrps[targetGrpName].Start, b.ArgGrps[name].Start) > 0 {
-			b.ArgGrps[targetGrpName].Start = b.ArgGrps[name].Start
+func (b *Block) mergeArgGrps(targetGrpType ArgGrpType, srcGrpTypes []ArgGrpType) {
+	b.ArgGrps[targetGrpType] = new(ArgGrp)
+	for _, srcGrpType := range srcGrpTypes {
+		b.ArgGrps[targetGrpType].Args = append(b.ArgGrps[targetGrpType].Args, b.ArgGrps[srcGrpType].Args...)
+		if ComparePos(b.ArgGrps[targetGrpType].Start, b.ArgGrps[srcGrpType].Start) > 0 {
+			b.ArgGrps[targetGrpType].Start = b.ArgGrps[srcGrpType].Start
 		}
-		if ComparePos(b.ArgGrps[targetGrpName].End, b.ArgGrps[name].End) < 0 {
-			b.ArgGrps[targetGrpName].End = b.ArgGrps[name].End
+		if ComparePos(b.ArgGrps[targetGrpType].End, b.ArgGrps[srcGrpType].End) < 0 {
+			b.ArgGrps[targetGrpType].End = b.ArgGrps[srcGrpType].End
 		}
-		b.ArgGrps[targetGrpName].IsSorted = b.ArgGrps[targetGrpName].IsSorted && b.ArgGrps[name].IsSorted
+		b.ArgGrps[targetGrpType].IsSorted = b.ArgGrps[targetGrpType].IsSorted && b.ArgGrps[srcGrpType].IsSorted
 	}
 }
