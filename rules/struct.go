@@ -40,9 +40,8 @@ type Block struct {
 // ArgGrpType is an enumeration used for differentiating arguments
 type ArgGrpType string
 
+// the enumeration for argument group types
 const (
-	// the enumeration for argument group types
-
 	HeadMetaArgs           ArgGrpType = "headMetaArgs"
 	RequiredAzAttrs                   = "requiredAzAttrs"
 	OptionalAzAttrs                   = "optionalAzAttrs"
