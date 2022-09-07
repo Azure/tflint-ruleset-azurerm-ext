@@ -7,13 +7,12 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
-	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/project"
 	"strings"
 )
 
 // AzurermResourceTagRule checks whether the tags arg is specified if supported
 type AzurermResourceTagRule struct {
-	tflint.DefaultRule
+	DefaultRule
 }
 
 // NewAzurermResourceTagRule returns a new rule
@@ -21,49 +20,11 @@ func NewAzurermResourceTagRule() *AzurermResourceTagRule {
 	return &AzurermResourceTagRule{}
 }
 
-// Name returns the rule name
-func (r *AzurermResourceTagRule) Name() string {
-	return "azurerm_resource_tag"
-}
-
-// Enabled returns whether the rule is enabled by default
-func (r *AzurermResourceTagRule) Enabled() bool {
-	return false
-}
-
-// Severity returns the rule severity
-func (r *AzurermResourceTagRule) Severity() tflint.Severity {
-	return tflint.NOTICE
-}
-
-// Link returns the rule reference link
-func (r *AzurermResourceTagRule) Link() string {
-	return project.ReferenceLink(r.Name())
-}
-
-// Check checks whether the tags arg is specified if supported
-func (r *AzurermResourceTagRule) Check(runner tflint.Runner) error {
-	files, err := runner.GetFiles()
-	if err != nil {
-		return err
-	}
-	for _, file := range files {
-		subErr := r.visitConfig(runner, file)
-		if subErr != nil {
-			err = multierror.Append(err, subErr)
-		}
-	}
-	return err
-}
-
-func (r *AzurermResourceTagRule) visitConfig(runner tflint.Runner, file *hcl.File) error {
-	body := file.Body.(*hclsyntax.Body)
-	return r.visitModule(runner, body)
-}
-
-func (r *AzurermResourceTagRule) visitModule(runner tflint.Runner, module *hclsyntax.Body) error {
+// CheckFile checks whether the tags arg is specified if supported
+func (r *AzurermResourceTagRule) CheckFile(runner tflint.Runner, file *hcl.File) error {
+	blocks := file.Body.(*hclsyntax.Body).Blocks
 	var err error
-	for _, block := range module.Blocks {
+	for _, block := range blocks {
 		var subErr error
 		switch provider.RootBlockType(block.Type) {
 		case provider.Resource:

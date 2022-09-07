@@ -573,7 +573,7 @@ resource "azurerm_container_group" "example" {}`,
 		},
 	}
 
-	rule := NewAzurermArgOrderRule()
+	rule := NewRule(NewAzurermArgOrderRule())
 
 	for _, tc := range cases {
 		runner := helper.TestRunner(t, map[string]string{"config.tf": tc.Content})

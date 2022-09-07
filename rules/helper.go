@@ -2,22 +2,13 @@ package rules
 
 import (
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/terraform-linters/tflint-plugin-sdk/helper"
+	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 	"sort"
 )
 
-// Arg contains attrs and nested blocks defined in a block
-type Arg struct {
-	Name      string
-	SortField string
-	Range     hcl.Range
-	Block     *hclsyntax.Block
-}
-
 var headMetaArgPriority, tailMetaArgPriority = map[string]int{"for_each": 1, "count": 1, "provider": 0}, map[string]int{"lifecycle": 1, "depends_on": 0}
 
-// IsHeadMeta checks whether a name represents a type of head Meta arg 
+// IsHeadMeta checks whether a name represents a type of head Meta arg
 func IsHeadMeta(argName string) bool {
 	_, isHeadMeta := headMetaArgPriority[argName]
 	return isHeadMeta
@@ -52,7 +43,24 @@ func GetArgsWithOriginalOrder(args []Arg) []Arg {
 	return argsWithOriginalOrder
 }
 
-// IsIssueEmpty checks whether an issue is empty
-func IsIssueEmpty(issue *helper.Issue) bool {
-	return *issue == helper.Issue{}
+// ComparePos compares the value of hcl.Pos pos1 and pos2,
+//negative result means pos1 is prior to pos2,
+//zero result means the 2 positions are identical,
+//positive result means pos2 is prior to pos1
+func ComparePos(pos1 hcl.Pos, pos2 hcl.Pos) int {
+	if pos1.Line == pos2.Line {
+		return pos1.Column - pos2.Column
+	}
+	return pos1.Line - pos2.Line
+}
+
+func getExistedRules() map[string]tflint.Rule {
+	rules := make(map[string]tflint.Rule)
+	for _, rule := range Rules {
+		if rule.Name() == "basic_ext_ignore_config" {
+			continue
+		}
+		rules[rule.Name()] = rule
+	}
+	return rules
 }
