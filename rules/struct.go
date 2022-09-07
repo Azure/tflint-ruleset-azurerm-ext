@@ -32,33 +32,36 @@ type ArgGrp struct {
 type Block struct {
 	File             *hcl.File
 	Block            *hclsyntax.Block
-	ArgGrps          map[string]*ArgGrp
+	ArgGrps          map[ArgGrpType]*ArgGrp
 	IsSorted         bool
 	parentBlockNames []string
 }
 
+// ArgGrpType is an enumeration used for differentiating arguments
+type ArgGrpType string
+
 const (
-	HEAD_META_ARGS           = "headMetaArgs"
-	REQUIRED_AZ_ATTRS        = "requiredAzAttrs"
-	OPTIONAL_AZ_ATTRS        = "optionalAzAttrs"
-	NONAZ_ATTRS              = "nonAzAttrs"
-	REQUIRED_AZ_NESTEDBLOCKS = "requiredAzNestedBlocks"
-	OPTIONAL_AZ_NESTEDBLOCKS = "optionalAzNestedBlocks"
-	NONAZ_NESTEDBLOCKS       = "nonAzNestedBlocks"
-	TAIL_META_ARGS           = "tailMetaArgs"
-	ATTRS                    = "attrs"
-	NESTEDBLOCKS             = "nestedBlocks"
+	HeadMetaArgs           ArgGrpType = "headMetaArgs"
+	RequiredAzAttrs                   = "requiredAzAttrs"
+	OptionalAzAttrs                   = "optionalAzAttrs"
+	NonAzAttrs                        = "nonAzAttrs"
+	RequiredAzNestedBlocks            = "requiredAzNestedBlocks"
+	OptionalAzNestedBlocks            = "optionalAzNestedBlocks"
+	NonAzNestedBlocks                 = "nonAzNestedBlocks"
+	TailMetaArgs                      = "tailMetaArgs"
+	Attrs                             = "attrs"
+	NestedBlocks                      = "nestedBlocks"
 )
 
-var argGrpTypes = []string{
-	HEAD_META_ARGS,
-	REQUIRED_AZ_ATTRS,
-	OPTIONAL_AZ_ATTRS,
-	NONAZ_ATTRS,
-	REQUIRED_AZ_NESTEDBLOCKS,
-	OPTIONAL_AZ_NESTEDBLOCKS,
-	NONAZ_NESTEDBLOCKS,
-	TAIL_META_ARGS,
+var argGrpTypes = []ArgGrpType{
+	HeadMetaArgs,
+	RequiredAzAttrs,
+	OptionalAzAttrs,
+	NonAzAttrs,
+	RequiredAzNestedBlocks,
+	OptionalAzNestedBlocks,
+	NonAzNestedBlocks,
+	TailMetaArgs,
 }
 
 // BuildRootBlock Build the root block wrapper using hclsyntax.Block
@@ -89,7 +92,7 @@ func buildBlock(block *hclsyntax.Block, file *hcl.File, parentBlockNames []strin
 }
 
 func initBlock(block *hclsyntax.Block, file *hcl.File, parentBlockNames []string) *Block {
-	b := &Block{ArgGrps: make(map[string]*ArgGrp)}
+	b := &Block{ArgGrps: make(map[ArgGrpType]*ArgGrp)}
 	b.File = file
 	b.Block = block
 	for _, argGrpType := range argGrpTypes {
@@ -112,22 +115,22 @@ func (b *Block) buildArgGrpsWithAttrs(attributes hclsyntax.Attributes) {
 	for attrName, attr := range attributes {
 		arg := buildAttrArg(attr)
 		if IsHeadMeta(attrName) {
-			b.addArg(HEAD_META_ARGS, arg)
+			b.addArg(HeadMetaArgs, arg)
 			continue
 		}
 		if IsTailMeta(attrName) {
-			b.addArg(TAIL_META_ARGS, arg)
+			b.addArg(TailMetaArgs, arg)
 			continue
 		}
 		attrSchema, isAzAttr := argSchemas[attrName]
 		if isAzAttr && attrSchema.Required {
-			b.addArg(REQUIRED_AZ_ATTRS, arg)
+			b.addArg(RequiredAzAttrs, arg)
 			continue
 		}
 		if isAzAttr {
-			b.addArg(OPTIONAL_AZ_ATTRS, arg)
+			b.addArg(OptionalAzAttrs, arg)
 		} else {
-			b.addArg(NONAZ_ATTRS, arg)
+			b.addArg(NonAzAttrs, arg)
 		}
 	}
 }
@@ -161,27 +164,27 @@ func (b *Block) buildArgGrpsWithNestedBlocks(nestedBlocks hclsyntax.Blocks) {
 	for _, nestedBlock := range nestedBlocks {
 		arg := b.buildNestedBlockArg(nestedBlock)
 		if IsHeadMeta(arg.Name) {
-			b.addArg(HEAD_META_ARGS, arg)
+			b.addArg(HeadMetaArgs, arg)
 			continue
 		}
 		if IsTailMeta(arg.Name) {
-			b.addArg(TAIL_META_ARGS, arg)
+			b.addArg(TailMetaArgs, arg)
 			continue
 		}
 		blockSchema, isAzNestedBlock := argSchemas[arg.Name]
 		if isAzNestedBlock && blockSchema.Required {
-			b.addArg(REQUIRED_AZ_NESTEDBLOCKS, arg)
+			b.addArg(RequiredAzNestedBlocks, arg)
 			continue
 		}
 		if isAzNestedBlock {
-			b.addArg(OPTIONAL_AZ_NESTEDBLOCKS, arg)
+			b.addArg(OptionalAzNestedBlocks, arg)
 		} else {
-			b.addArg(NONAZ_NESTEDBLOCKS, arg)
+			b.addArg(NonAzNestedBlocks, arg)
 		}
 	}
 }
 
-func (b *Block) addArg(argGrpType string, arg *Arg) {
+func (b *Block) addArg(argGrpType ArgGrpType, arg *Arg) {
 	b.validateArgOrder(argGrpType, arg)
 	b.appendArg(argGrpType, arg)
 }
@@ -217,7 +220,7 @@ func (b *Block) printSorted() string {
 func (b *Block) print() string {
 	isGapNeeded := false
 	var sortedArgTxts []string
-	sortedArgGrpNames := []string{HEAD_META_ARGS, ATTRS, NESTEDBLOCKS, TAIL_META_ARGS}
+	sortedArgGrpNames := []ArgGrpType{HeadMetaArgs, Attrs, NestedBlocks, TailMetaArgs}
 	for _, name := range sortedArgGrpNames {
 		args := b.ArgGrps[name].Args
 		if len(args) == 0 {
@@ -254,14 +257,14 @@ func (b *Block) sortArgGrps() {
 	}
 }
 
-func (b *Block) sortArgs(argGrpName string) {
+func (b *Block) sortArgs(argGrpName ArgGrpType) {
 	args := b.ArgGrps[argGrpName].Args
 	switch argGrpName {
-	case HEAD_META_ARGS:
+	case HeadMetaArgs:
 		sort.Slice(args, func(i, j int) bool {
 			return GetHeadMetaPriority(args[i].Name) > GetHeadMetaPriority(args[j].Name)
 		})
-	case TAIL_META_ARGS:
+	case TailMetaArgs:
 		sort.Slice(args, func(i, j int) bool {
 			return GetTailMetaPriority(args[i].Name) > GetTailMetaPriority(args[j].Name)
 		})
@@ -272,14 +275,14 @@ func (b *Block) sortArgs(argGrpName string) {
 	}
 }
 
-func (b *Block) validateArgOrder(argGrpType string, arg *Arg) {
+func (b *Block) validateArgOrder(argGrpType ArgGrpType, arg *Arg) {
 	argGrp := b.ArgGrps[argGrpType]
 	validateFunc := func(existedArg *Arg) bool {
 		switch argGrpType {
-		case HEAD_META_ARGS:
+		case HeadMetaArgs:
 			return (GetHeadMetaPriority(arg.Name) > GetHeadMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) > 0) ||
 				(GetHeadMetaPriority(arg.Name) < GetHeadMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) < 0)
-		case TAIL_META_ARGS:
+		case TailMetaArgs:
 			return (GetTailMetaPriority(arg.Name) > GetTailMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) > 0) ||
 				(GetTailMetaPriority(arg.Name) < GetTailMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) < 0)
 		default:
@@ -297,7 +300,7 @@ func (b *Block) validateArgOrder(argGrpType string, arg *Arg) {
 	}
 }
 
-func (b *Block) appendArg(argGrpType string, arg *Arg) {
+func (b *Block) appendArg(argGrpType ArgGrpType, arg *Arg) {
 	argGrp := b.ArgGrps[argGrpType]
 	argGrp.Args = append(argGrp.Args, arg)
 	if ComparePos(argGrp.Start, arg.Range.Start) > 0 {
@@ -326,7 +329,7 @@ func (b *Block) isArgGrpsSorted() bool {
 }
 
 func (b *Block) isCorrectlySplit() bool {
-	names := []string{HEAD_META_ARGS, ATTRS, NESTEDBLOCKS, TAIL_META_ARGS}
+	names := []ArgGrpType{HeadMetaArgs, Attrs, NestedBlocks, TailMetaArgs}
 	var lastGrp *ArgGrp
 	for _, name := range names {
 		if len(b.ArgGrps[name].Args) == 0 {
@@ -341,13 +344,13 @@ func (b *Block) isCorrectlySplit() bool {
 }
 
 func (b *Block) mergeGeneralArgs() {
-	attrGrpNames := []string{REQUIRED_AZ_ATTRS, OPTIONAL_AZ_ATTRS, NONAZ_ATTRS}
-	b.mergeArgGrps(ATTRS, attrGrpNames)
-	blockGrpNames := []string{REQUIRED_AZ_NESTEDBLOCKS, OPTIONAL_AZ_NESTEDBLOCKS, NONAZ_NESTEDBLOCKS}
-	b.mergeArgGrps(NESTEDBLOCKS, blockGrpNames)
+	attrGrpNames := []ArgGrpType{RequiredAzAttrs, OptionalAzAttrs, NonAzAttrs}
+	b.mergeArgGrps(Attrs, attrGrpNames)
+	blockGrpNames := []ArgGrpType{RequiredAzNestedBlocks, OptionalAzNestedBlocks, NonAzNestedBlocks}
+	b.mergeArgGrps(NestedBlocks, blockGrpNames)
 }
 
-func (b *Block) mergeArgGrps(targetGrpName string, srcGrpNames []string) {
+func (b *Block) mergeArgGrps(targetGrpName ArgGrpType, srcGrpNames []ArgGrpType) {
 	b.ArgGrps[targetGrpName] = new(ArgGrp)
 	for _, name := range srcGrpNames {
 		b.ArgGrps[targetGrpName].Args = append(b.ArgGrps[targetGrpName].Args, b.ArgGrps[name].Args...)
