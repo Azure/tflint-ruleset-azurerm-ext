@@ -342,7 +342,43 @@ resource "azurerm_container_group" "example" {
 			},
 		},
 		{
-			Name: "6. dynamic block",
+			Name: "6. too many gaps",
+			Content: `
+resource "azurerm_container_group" "example" {
+  count    = 4
+  provider = azurerm.europe
+
+
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags = {
+    Name = "container ${count.index}"
+  }
+
+
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+
+
+  lifecycle {
+    create_before_destroy = true
+  }
+  depends_on = [
+    azurerm_resource_group.example
+  ]
+}`,
+			Expected: helper.Issues{},
+		},
+		{
+			Name: "7. dynamic block",
 			Content: `
 resource "azurerm_kubernetes_cluster" "main" {
   dynamic "azure_active_directory_role_based_access_control" {
@@ -440,7 +476,7 @@ resource "azurerm_kubernetes_cluster" "main" {
 		},
 
 		{
-			Name: "7. common",
+			Name: "8. common",
 			Content: `
 resource "azurerm_resource_group" "example" {
   name     = "example-resources"
@@ -523,7 +559,7 @@ resource "azurerm_container_group" "example" {
 			},
 		},
 		{
-			Name: "8. datasource",
+			Name: "9. datasource",
 			Content: `
 data "azurerm_resources" "example" {
   resource_group_name = "example-resources"
@@ -547,7 +583,7 @@ data "azurerm_resources" "example" {
 			},
 		},
 		{
-			Name: "9. provider",
+			Name: "10. provider",
 			Content: `
 provider "azurerm" {
   features {}
@@ -566,7 +602,7 @@ provider "azurerm" {
 			},
 		},
 		{
-			Name: "10. empty block",
+			Name: "11. empty block",
 			Content: `
 resource "azurerm_container_group" "example" {}`,
 			Expected: helper.Issues{},

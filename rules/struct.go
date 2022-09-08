@@ -303,13 +303,19 @@ func (b *Block) validateArgOrder(argGrpType ArgGrpType, arg *Arg) {
 
 func (b *Block) appendArg(argGrpType ArgGrpType, arg *Arg) {
 	argGrp := b.ArgGrps[argGrpType]
-	argGrp.Args = append(argGrp.Args, arg)
-	if ComparePos(argGrp.Start, arg.Range.Start) > 0 {
+	args := append(argGrp.Args, arg)
+	if len(argGrp.Args) == 0 {
 		argGrp.Start = arg.Range.Start
-	}
-	if ComparePos(argGrp.End, arg.Range.End) < 0 {
 		argGrp.End = arg.Range.End
+	} else {
+		if ComparePos(argGrp.Start, arg.Range.Start) > 0 {
+			argGrp.Start = arg.Range.Start
+		}
+		if ComparePos(argGrp.End, arg.Range.End) < 0 {
+			argGrp.End = arg.Range.End
+		}
 	}
+	argGrp.Args = args
 }
 
 func (b *Block) isArgGrpsSorted() bool {
@@ -354,13 +360,11 @@ func (b *Block) mergeGeneralArgs() {
 func (b *Block) mergeArgGrps(targetGrpType ArgGrpType, srcGrpTypes []ArgGrpType) {
 	b.ArgGrps[targetGrpType] = new(ArgGrp)
 	for _, srcGrpType := range srcGrpTypes {
-		b.ArgGrps[targetGrpType].Args = append(b.ArgGrps[targetGrpType].Args, b.ArgGrps[srcGrpType].Args...)
-		if ComparePos(b.ArgGrps[targetGrpType].Start, b.ArgGrps[srcGrpType].Start) > 0 {
+		if len(b.ArgGrps[targetGrpType].Args) == 0 {
 			b.ArgGrps[targetGrpType].Start = b.ArgGrps[srcGrpType].Start
 		}
-		if ComparePos(b.ArgGrps[targetGrpType].End, b.ArgGrps[srcGrpType].End) < 0 {
-			b.ArgGrps[targetGrpType].End = b.ArgGrps[srcGrpType].End
-		}
+		b.ArgGrps[targetGrpType].End = b.ArgGrps[srcGrpType].End
+		b.ArgGrps[targetGrpType].Args = append(b.ArgGrps[targetGrpType].Args, b.ArgGrps[srcGrpType].Args...)
 		b.ArgGrps[targetGrpType].IsSorted = b.ArgGrps[targetGrpType].IsSorted && b.ArgGrps[srcGrpType].IsSorted
 	}
 }
