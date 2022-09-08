@@ -607,6 +607,39 @@ provider "azurerm" {
 resource "azurerm_container_group" "example" {}`,
 			Expected: helper.Issues{},
 		},
+		{
+			Name: "12. correct cases",
+			Content: `
+esource "azurerm_container_group" "example" {
+  count    = 4
+  provider = azurerm.europe
+
+  location            = azurerm_resource_group.example.location
+  name                = "example-continst"
+  os_type             = "Linux"
+  resource_group_name = azurerm_resource_group.example.name
+  dns_name_label      = "aci-label"
+  ip_address_type     = "Public"
+  tags = {
+    Name = "container ${count.index}"
+  }
+
+  container {
+    cpu    = "0.5"
+    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    memory = "1.5"
+    name   = "sidecar"
+  }
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+  depends_on = [
+    azurerm_resource_group.example
+  ]
+}`,
+			Expected: helper.Issues{},
+		},
 	}
 
 	rule := NewRule(NewAzurermArgOrderRule())
