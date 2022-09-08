@@ -3,7 +3,6 @@ package rules
 import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
-	"sort"
 )
 
 var headMetaArgPriority, tailMetaArgPriority = map[string]int{"for_each": 1, "count": 1, "provider": 0}, map[string]int{"lifecycle": 1, "depends_on": 0}
@@ -30,19 +29,6 @@ func GetTailMetaPriority(argName string) int {
 	return tailMetaArgPriority[argName]
 }
 
-// GetArgsWithOriginalOrder returns the args with original order
-func GetArgsWithOriginalOrder(args []Arg) []Arg {
-	argsWithOriginalOrder := make([]Arg, len(args), len(args))
-	copy(argsWithOriginalOrder, args)
-	sort.Slice(argsWithOriginalOrder, func(i, j int) bool {
-		if argsWithOriginalOrder[i].Range.Start.Line == argsWithOriginalOrder[j].Range.Start.Line {
-			return argsWithOriginalOrder[i].Range.Start.Column < argsWithOriginalOrder[j].Range.Start.Column
-		}
-		return argsWithOriginalOrder[i].Range.Start.Line < argsWithOriginalOrder[j].Range.Start.Line
-	})
-	return argsWithOriginalOrder
-}
-
 // ComparePos compares the value of hcl.Pos pos1 and pos2,
 //negative result means pos1 is prior to pos2,
 //zero result means the 2 positions are identical,
@@ -57,9 +43,6 @@ func ComparePos(pos1 hcl.Pos, pos2 hcl.Pos) int {
 func getExistedRules() map[string]tflint.Rule {
 	rules := make(map[string]tflint.Rule)
 	for _, rule := range Rules {
-		if rule.Name() == "basic_ext_ignore_config" {
-			continue
-		}
 		rules[rule.Name()] = rule
 	}
 	return rules
