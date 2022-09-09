@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -42,6 +43,13 @@ func (r *AzurermArgOrderRule) CheckFile(runner tflint.Runner, file *hcl.File) er
 
 func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyntax.Block) error {
 	file, _ := runner.GetFile(azBlock.Range().Filename)
-	b := BuildRootBlock(azBlock, file)
-	return b.CheckArgOrder(runner, r)
+	b := BuildResourceBlock(azBlock, file)
+	if pos, sorted := b.CheckArgOrder(); !sorted {
+		return runner.EmitIssue(r, fmt.Sprintf("line: %d", pos.Line), hcl.Range{
+			Filename: azBlock.Range().Filename,
+			Start:    pos,
+			End:      b.Block.Range().End,
+		})
+	}
+	return nil
 }
