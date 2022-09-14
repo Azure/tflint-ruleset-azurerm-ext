@@ -216,8 +216,8 @@ resource "azurerm_container_group" "example" {
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
-  count    = 4
   provider = azurerm.europe
+  count    = 4
 
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
@@ -236,20 +236,21 @@ resource "azurerm_container_group" "example" {
     name   = "sidecar"
   }
 
-  lifecycle {
-    create_before_destroy = true
-  }
   depends_on = [
     azurerm_resource_group.example
   ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }`,
 				},
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
-  for_each = local.container_ids
   provider = azurerm.europe
+  for_each = local.container_ids
 
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
@@ -268,12 +269,13 @@ resource "azurerm_container_group" "example" {
     name   = "sidecar"
   }
 
-  lifecycle {
-    create_before_destroy = true
-  }
   depends_on = [
     azurerm_resource_group.example
   ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }`,
 				},
 			},
@@ -282,8 +284,8 @@ resource "azurerm_container_group" "example" {
 			Name: "5. Gap between different types of args",
 			Content: `
 resource "azurerm_container_group" "example" {
-  count               = 4
   provider            = azurerm.europe
+  count               = 4
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
   os_type             = "Linux"
@@ -299,20 +301,20 @@ resource "azurerm_container_group" "example" {
     memory = "1.5"
     name   = "sidecar"
   }
-  lifecycle {
-    create_before_destroy = true
-  }
   depends_on = [
     azurerm_resource_group.example
   ]
+  lifecycle {
+    create_before_destroy = true
+  }
 }`,
 			Expected: helper.Issues{
 				{
 					Rule: NewAzurermArgOrderRule(),
 					Message: `Arguments are expected to be sorted in following order:
 resource "azurerm_container_group" "example" {
-  count    = 4
   provider = azurerm.europe
+  count    = 4
 
   location            = azurerm_resource_group.example.location
   name                = "example-continst"
@@ -331,12 +333,13 @@ resource "azurerm_container_group" "example" {
     name   = "sidecar"
   }
 
-  lifecycle {
-    create_before_destroy = true
-  }
   depends_on = [
     azurerm_resource_group.example
   ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }`,
 				},
 			},
@@ -345,8 +348,8 @@ resource "azurerm_container_group" "example" {
 			Name: "6. too many gaps",
 			Content: `
 resource "azurerm_container_group" "example" {
-  count    = 4
   provider = azurerm.europe
+  count    = 4
 
 
   location            = azurerm_resource_group.example.location
@@ -368,12 +371,14 @@ resource "azurerm_container_group" "example" {
   }
 
 
-  lifecycle {
-    create_before_destroy = true
-  }
   depends_on = [
     azurerm_resource_group.example
   ]
+
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }`,
 			Expected: helper.Issues{},
 		},
@@ -601,26 +606,9 @@ provider "azurerm" {
 				},
 			},
 		},
-	}
-
-	rule := NewRule(NewAzurermArgOrderRule())
-
-	for _, tc := range cases {
-		runner := helper.TestRunner(t, map[string]string{"config.tf": tc.Content})
-		t.Run(tc.Name, func(t *testing.T) {
-			if err := rule.Check(runner); err != nil {
-				t.Fatalf("Unexpected error occurred: %s", err)
-			}
-			//AssertIssues(t, tc.Expected, runner.Issues)
-			if len(runner.Issues) == 0 {
-				t.Fatalf("expected issue not found")
-			}
-		})
-	}
-}
-
-func TestAzureRM_ArgOrder_CorrectCase(t *testing.T) {
-	code := `
+		{
+			Name: "11. correct case",
+			Content: `
 resource "azurerm_container_group" "example" {
   provider = azurerm.europe
   count    = 4
@@ -645,67 +633,24 @@ resource "azurerm_container_group" "example" {
   depends_on = [
     azurerm_resource_group.example
   ]
+
   lifecycle {
     create_before_destroy = true
   }
-}`
+}`,
+			Expected: helper.Issues{},
+		},
+	}
+
 	rule := NewRule(NewAzurermArgOrderRule())
-	runner := helper.TestRunner(t, map[string]string{"config.tf": code})
-	if err := rule.Check(runner); err != nil {
-		t.Fatalf("Unexpected error occurred: %s", err)
-	}
-	if len(runner.Issues) != 0 {
-		t.Fatalf("line: %d", runner.Issues[0].Range.Start.Line)
-	}
-}
 
-func TestAzureRM_ArgOrder_EmptyBlock(t *testing.T) {
-	code := `
-data "azurerm_client_config" "current" {
-}`
-	rule := NewRule(NewAzurermArgOrderRule())
-	runner := helper.TestRunner(t, map[string]string{"config.tf": code})
-	if err := rule.Check(runner); err != nil {
-		t.Fatalf("Unexpected error occurred: %s", err)
-	}
-	if len(runner.Issues) != 0 {
-		t.Fatalf("unexpected issue found")
-	}
-}
-
-func TestAzureRM_ArgOrder_CorrectCaseWithDynamicBlock(t *testing.T) {
-	code := `
-resource "azurerm_kubernetes_cluster" "main" {
-  default_node_pool {
-    name    = var.agents_pool_name
-    vm_size = var.agents_size
-  }
-  dynamic "default_node_pool" {
-    for_each = var.enable_auto_scaling == true ? [] : ["default_node_pool_manually_scaled"]
-
-    content {
-      name    = var.agents_pool_name
-      vm_size = var.agents_size
-    }
-  }
-  dynamic "azure_active_directory_role_based_access_control" {
-    for_each = var.enable_role_based_access_control && var.rbac_aad_managed ? ["rbac"] : []
-
-    content {
-      admin_group_object_ids = var.rbac_aad_admin_group_object_ids
-      azure_rbac_enabled     = var.rbac_aad_azure_rbac_enabled
-      managed                = true
-      tenant_id              = var.rbac_aad_tenant_id
-    }
-  }
-}
-`
-	rule := NewRule(NewAzurermArgOrderRule())
-	runner := helper.TestRunner(t, map[string]string{"config.tf": code})
-	if err := rule.Check(runner); err != nil {
-		t.Fatalf("Unexpected error occurred: %s", err)
-	}
-	if len(runner.Issues) != 0 {
-		t.Fatalf("unexpected issue found, line: %d", runner.Issues[0].Range.Start.Line)
+	for _, tc := range cases {
+		runner := helper.TestRunner(t, map[string]string{"config.tf": tc.Content})
+		t.Run(tc.Name, func(t *testing.T) {
+			if err := rule.Check(runner); err != nil {
+				t.Fatalf("Unexpected error occurred: %s", err)
+			}
+			AssertIssues(t, tc.Expected, runner.Issues)
+		})
 	}
 }

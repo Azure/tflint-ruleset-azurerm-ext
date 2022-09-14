@@ -2,8 +2,10 @@ package rules
 
 import (
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"sort"
 	"strings"
@@ -13,30 +15,49 @@ import (
 type ResourceBlock struct {
 	File                 *hcl.File
 	Block                *hclsyntax.Block
-	HeadMetaArgs         *Args
+	HeadMetaArgs         *HeadMetaArgs
 	RequiredArgs         *Args
 	OptionalArgs         *Args
 	RequiredNestedBlocks *NestedBlocks
 	OptionalNestedBlocks *NestedBlocks
 	TailMetaArgs         *Args
 	TailMetaNestedBlocks *NestedBlocks
-	parentBlockNames     []string
+	ParentBlockNames     []string
+	callBack             func(block Block) error
+}
+
+func (b *ResourceBlock) CheckBlock() error {
+	if !b.CheckOrder() {
+		return b.callBack(b)
+	}
+	var err error
+	for _, nb := range b.nestedBlocks() {
+		if subErr := nb.CheckBlock(); subErr != nil {
+			err = multierror.Append(err, subErr)
+		}
+	}
+	return err
+}
+
+func (b *ResourceBlock) DefRange() hcl.Range {
+	return b.Block.DefRange()
 }
 
 // BuildResourceBlock Build the root block wrapper using hclsyntax.Block
-func BuildResourceBlock(block *hclsyntax.Block, file *hcl.File) *ResourceBlock {
+func BuildResourceBlock(block *hclsyntax.Block, file *hcl.File,
+	callBack func(block Block) error) *ResourceBlock {
 	b := &ResourceBlock{
 		File:             file,
 		Block:            block,
-		parentBlockNames: []string{block.Type, block.Labels[0]},
+		ParentBlockNames: []string{block.Type, block.Labels[0]},
+		callBack:         callBack,
 	}
 	b.buildArgs(block.Body.Attributes)
 	b.buildArgGrpsWithNestedBlocks(block.Body.Blocks)
 	return b
 }
 
-// CheckArgOrder recursively Checks whether the args in a block and its nested block are correctly sorted
-func (b *ResourceBlock) CheckArgOrder() (hcl.Pos, bool) {
+func (b *ResourceBlock) CheckOrder() bool {
 	sections := []Section{
 		b.HeadMetaArgs,
 		b.RequiredArgs,
@@ -46,22 +67,61 @@ func (b *ResourceBlock) CheckArgOrder() (hcl.Pos, bool) {
 		b.TailMetaArgs,
 		b.TailMetaNestedBlocks,
 	}
-	var current hcl.Pos
-	var sorted bool
+	lastEndLine := -1
 	for _, s := range sections {
-		if current, sorted = s.Check(current); !sorted {
-			return current, false
+		if !s.CheckOrder() {
+			return false
+		}
+		r := s.GetRange()
+		if r == nil {
+			continue
+		}
+		if r.Start.Line <= lastEndLine {
+			return false
+		}
+		lastEndLine = r.End.Line
+	}
+	return b.checkGap()
+}
+
+func (b *ResourceBlock) ToString() string {
+	headMetaTxt := mergePrint(b.HeadMetaArgs)
+	argTxt := mergePrint(b.RequiredArgs, b.OptionalArgs)
+	nbTxt := mergePrint(b.RequiredNestedBlocks, b.OptionalNestedBlocks)
+	tailMetaArgTxt := mergePrint(b.TailMetaArgs)
+	tailMetaNbTxt := mergePrint(b.TailMetaNestedBlocks)
+	var txts []string
+	for _, subTxt := range []string{headMetaTxt, argTxt, nbTxt, tailMetaArgTxt, tailMetaNbTxt} {
+		if subTxt != "" {
+			txts = append(txts, subTxt)
 		}
 	}
-	return *new(hcl.Pos), true
+	txt := strings.Join(txts, "\n\n")
+	blockHead := string(b.Block.DefRange().SliceBytes(b.File.Bytes))
+	if strings.TrimSpace(txt) == "" {
+		txt = fmt.Sprintf("%s {}", blockHead)
+	} else {
+		txt = fmt.Sprintf("%s {\n%s\n}", blockHead, txt)
+	}
+	return string(hclwrite.Format([]byte(txt)))
+}
+
+func (b *ResourceBlock) nestedBlocks() []*NestedBlock {
+	var nbs []*NestedBlock
+	for _, subNbs := range []*NestedBlocks{b.RequiredNestedBlocks, b.OptionalNestedBlocks, b.TailMetaNestedBlocks} {
+		if subNbs != nil {
+			nbs = append(nbs, subNbs.Blocks...)
+		}
+	}
+	return nbs
 }
 
 func (b *ResourceBlock) buildArgs(attributes hclsyntax.Attributes) {
-	argSchemas := provider.GetArgSchema(b.parentBlockNames)
+	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
 	attrs := sortedAttributes(attributes)
 	for _, attr := range attrs {
 		attrName := attr.Name
-		arg := buildAttrArg(attr)
+		arg := buildAttrArg(attr, b.File)
 		if IsHeadMeta(attrName) {
 			b.addHeadMetaArg(arg)
 			continue
@@ -102,9 +162,9 @@ func (b *ResourceBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) *NestedBl
 	}
 	var parentBlockNames []string
 	if nestedBlockName == "content" && b.Block.Type == "dynamic" {
-		parentBlockNames = b.parentBlockNames
+		parentBlockNames = b.ParentBlockNames
 	} else {
-		parentBlockNames = append(b.parentBlockNames, nestedBlockName)
+		parentBlockNames = append(b.ParentBlockNames, nestedBlockName)
 	}
 	nb := &NestedBlock{
 		Name:             nestedBlockName,
@@ -112,6 +172,8 @@ func (b *ResourceBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) *NestedBl
 		Range:            nestedBlock.Range(),
 		Block:            nestedBlock,
 		ParentBlockNames: parentBlockNames,
+		File:             b.File,
+		callBack:         b.callBack,
 	}
 	nb.buildArgGrpsWithAttrs(nestedBlock.Body.Attributes)
 	nb.buildNestedBlocks(nestedBlock.Body.Blocks)
@@ -119,7 +181,7 @@ func (b *ResourceBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) *NestedBl
 }
 
 func (b *ResourceBlock) buildArgGrpsWithNestedBlocks(nestedBlocks hclsyntax.Blocks) {
-	argSchemas := provider.GetArgSchema(b.parentBlockNames)
+	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
 	for _, nestedBlock := range nestedBlocks {
 		nb := b.buildNestedBlock(nestedBlock)
 		if IsTailMeta(nb.Name) {
@@ -135,168 +197,70 @@ func (b *ResourceBlock) buildArgGrpsWithNestedBlocks(nestedBlocks hclsyntax.Bloc
 	}
 }
 
-//func (b *ResourceBlock) printSorted() string {
-//	b.sortArgGrps()
-//	//b.mergeGeneralArgs()
-//	return b.print()
-//}
-
-//func (b *ResourceBlock) print() string {
-//	isGapNeeded := false
-//	var sortedArgTxts []string
-//
-//	for _, group := range b.getSections() {
-//		if isGapNeeded {
-//			sortedArgTxts = append(sortedArgTxts, "")
-//		}
-//		for _, arg := range group.Args {
-//			sortedArgTxts = append(sortedArgTxts, b.printArg(arg))
-//		}
-//		isGapNeeded = true
-//	}
-//	sortedBlockHclTxt := strings.Join(sortedArgTxts, "\n")
-//	blockHead := string(b.Block.DefRange().SliceBytes(b.File.Bytes))
-//	if strings.TrimSpace(sortedBlockHclTxt) == "" {
-//		sortedBlockHclTxt = fmt.Sprintf("%s {}", blockHead)
-//	} else {
-//		sortedBlockHclTxt = fmt.Sprintf("%s {\n%s\n}", blockHead, sortedBlockHclTxt)
-//	}
-//	return string(hclwrite.Format([]byte(sortedBlockHclTxt)))
-//}
-
-//func (b *ResourceBlock) printArg(arg *Arg) string {
-//	if arg.Block != nil {
-//		return arg.Block.printSorted()
-//	}
-//	return string(arg.Range.SliceBytes(b.File.Bytes))
-//}
-
-//func (b *ResourceBlock) sortArgGrps() {
-//	for _, argGrpType := range argGrpTypes {
-//		b.sortArgs(argGrpType)
-//	}
-//}
-
-//func (b *ResourceBlock) sortArgs(argGrpType ArgGrpType) {
-//	section := b.getSection(argGrpType)
-//	args := section.Args
-//	switch argGrpType {
-//	case HeadMetaArgs:
-//		sort.Slice(args, func(i, j int) bool {
-//			return GetHeadMetaPriority(args[i].Name) > GetHeadMetaPriority(args[j].Name)
-//		})
-//	case TailMetaArgs:
-//		sort.Slice(args, func(i, j int) bool {
-//			return GetTailMetaPriority(args[i].Name) > GetTailMetaPriority(args[j].Name)
-//		})
-//	default:
-//		sort.Slice(args, func(i, j int) bool {
-//			return args[i].SortField < args[j].SortField
-//		})
-//	}
-//}
-//
-//func (b *ResourceBlock) validateArgOrder(argGrpType ArgGrpType, arg *Arg) {
-//	argGrp := b.getSection(argGrpType)
-//	validateFunc := func(existedArg *Arg) bool {
-//		switch argGrpType {
-//		case HeadMetaArgs:
-//			return (GetHeadMetaPriority(arg.Name) > GetHeadMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) > 0) ||
-//				(GetHeadMetaPriority(arg.Name) < GetHeadMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) < 0)
-//		case TailMetaArgs:
-//			return (GetTailMetaPriority(arg.Name) > GetTailMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) > 0) ||
-//				(GetTailMetaPriority(arg.Name) < GetTailMetaPriority(existedArg.Name) && ComparePos(arg.Range.Start, existedArg.Range.Start) < 0)
-//		default:
-//			return (arg.SortField < existedArg.SortField && ComparePos(arg.Range.Start, existedArg.Range.Start) > 0) ||
-//				(arg.SortField > existedArg.SortField && ComparePos(arg.Range.Start, existedArg.Range.Start) < 0)
-//		}
-//	}
-//	for _, existedArg := range argGrp.Args {
-//		if !argGrp.IsSorted {
-//			break
-//		}
-//		if validateFunc(existedArg) {
-//			argGrp.IsSorted = false
-//		}
-//	}
-//}
-//
-//func (b *ResourceBlock) isArgGrpsSorted() bool {
-//	var lastGrp *Args
-//	for _, section := range b.getSections() {
-//		if len(section.Args) == 0 {
-//			continue
-//		}
-//		if !section.IsSorted {
-//			return false
-//		}
-//		if lastGrp != nil && ComparePos(section.Start, lastGrp.End) <= 0 {
-//			return false
-//		}
-//		lastGrp = section
-//	}
-//	return true
-//}
-//
-//func (b *ResourceBlock) isCorrectlySplit() bool {
-//	var lastGrp *Args
-//	for _, section := range b.getSections() {
-//		if len(section.Args) == 0 {
-//			continue
-//		}
-//		if lastGrp != nil && section.Start.Line-lastGrp.End.Line < 2 {
-//			return false
-//		}
-//		lastGrp = section
-//	}
-//	return true
-//}
+func (b *ResourceBlock) checkGap() bool {
+	headMetaRange := mergeRange(b.HeadMetaArgs)
+	argRange := mergeRange(b.RequiredArgs, b.OptionalArgs)
+	nbRange := mergeRange(b.RequiredNestedBlocks, b.OptionalNestedBlocks)
+	tailMetaArgRange := mergeRange(b.TailMetaArgs)
+	tailMetaNbRange := mergeRange(b.TailMetaNestedBlocks)
+	lastEndLine := -2
+	for _, r := range []*hcl.Range{headMetaRange, argRange, nbRange, tailMetaArgRange, tailMetaNbRange} {
+		if r == nil {
+			continue
+		}
+		if r.Start.Line-lastEndLine < 2 {
+			return false
+		}
+		lastEndLine = r.End.Line
+	}
+	return true
+}
 
 func (b *ResourceBlock) addHeadMetaArg(arg *Arg) {
 	if b.HeadMetaArgs == nil {
-		b.HeadMetaArgs = &Args{Type: HeadMetaArgs}
+		b.HeadMetaArgs = &HeadMetaArgs{}
 	}
 	b.HeadMetaArgs.Add(arg)
 }
 
 func (b *ResourceBlock) addTailMetaArg(arg *Arg) {
 	if b.TailMetaArgs == nil {
-		b.TailMetaArgs = &Args{Type: TailMetaArgs}
+		b.TailMetaArgs = &Args{}
 	}
 	b.TailMetaArgs.Add(arg)
 }
 
 func (b *ResourceBlock) addRequiredAttr(arg *Arg) {
 	if b.RequiredArgs == nil {
-		b.RequiredArgs = &Args{Type: RequiredAzAttrs}
+		b.RequiredArgs = &Args{}
 	}
 	b.RequiredArgs.Add(arg)
 }
 
 func (b *ResourceBlock) addOptionalAttr(arg *Arg) {
 	if b.OptionalArgs == nil {
-		b.OptionalArgs = &Args{Type: OptionalAttrs}
+		b.OptionalArgs = &Args{}
 	}
 	b.OptionalArgs.Add(arg)
 }
 
 func (b *ResourceBlock) addTailMetaNestedBlock(nb *NestedBlock) {
 	if b.TailMetaNestedBlocks == nil {
-		b.TailMetaNestedBlocks = &NestedBlocks{Type: TailMetaNestedBlocks}
+		b.TailMetaNestedBlocks = &NestedBlocks{}
 	}
 	b.TailMetaNestedBlocks.Add(nb)
 }
 
 func (b *ResourceBlock) addRequiredNestedBlock(nb *NestedBlock) {
 	if b.RequiredNestedBlocks == nil {
-		b.RequiredNestedBlocks = &NestedBlocks{Type: RequiredNestedBlocks}
+		b.RequiredNestedBlocks = &NestedBlocks{}
 	}
 	b.RequiredNestedBlocks.Add(nb)
 }
 
 func (b *ResourceBlock) addOptionalNestedBlock(nb *NestedBlock) {
 	if b.OptionalNestedBlocks == nil {
-		b.OptionalNestedBlocks = &NestedBlocks{Type: OptionalNestedBlocks}
+		b.OptionalNestedBlocks = &NestedBlocks{}
 	}
 	b.OptionalNestedBlocks.Add(nb)
 }
@@ -304,3 +268,23 @@ func (b *ResourceBlock) addOptionalNestedBlock(nb *NestedBlock) {
 func (b *ResourceBlock) ExpectedLayoutError() error {
 	return fmt.Errorf("new error")
 }
+
+//// Check recursively Checks whether the args in a block and its nested block are correctly sorted
+//func (b *ResourceBlock) Check(current hcl.Pos) (hcl.Pos, bool) {
+//	sections := []Section{
+//		b.HeadMetaArgs,
+//		b.RequiredArgs,
+//		b.OptionalArgs,
+//		b.RequiredNestedBlocks,
+//		b.OptionalNestedBlocks,
+//		b.TailMetaArgs,
+//		b.TailMetaNestedBlocks,
+//	}
+//	var sorted bool
+//	for _, s := range sections {
+//		if current, sorted = s.Check(current); !sorted {
+//			return current, false
+//		}
+//	}
+//	return *new(hcl.Pos), b.checkGap()
+//}

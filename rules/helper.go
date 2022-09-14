@@ -5,7 +5,8 @@ import (
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 )
 
-var headMetaArgPriority, tailMetaArgPriority = map[string]int{"for_each": 1, "count": 1, "provider": 0}, map[string]int{"lifecycle": 1, "depends_on": 0}
+var headMetaArgPriority = map[string]int{"for_each": 0, "count": 0, "provider": 1}
+var tailMetaArgPriority = map[string]int{"lifecycle": 0, "depends_on": 1}
 
 // IsHeadMeta checks whether a name represents a type of head Meta arg
 func IsHeadMeta(argName string) bool {
@@ -17,16 +18,6 @@ func IsHeadMeta(argName string) bool {
 func IsTailMeta(argName string) bool {
 	_, isTailMeta := tailMetaArgPriority[argName]
 	return isTailMeta
-}
-
-// GetHeadMetaPriority gets the priority of a head Meta arg
-func GetHeadMetaPriority(argName string) int {
-	return headMetaArgPriority[argName]
-}
-
-// GetTailMetaPriority gets the priority of a tail Meta arg
-func GetTailMetaPriority(argName string) int {
-	return tailMetaArgPriority[argName]
 }
 
 // ComparePos compares the value of hcl.Pos pos1 and pos2,

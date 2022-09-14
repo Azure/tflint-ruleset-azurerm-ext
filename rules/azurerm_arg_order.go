@@ -42,14 +42,14 @@ func (r *AzurermArgOrderRule) CheckFile(runner tflint.Runner, file *hcl.File) er
 }
 
 func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyntax.Block) error {
-	file, _ := runner.GetFile(azBlock.Range().Filename)
-	b := BuildResourceBlock(azBlock, file)
-	if pos, sorted := b.CheckArgOrder(); !sorted {
-		return runner.EmitIssue(r, fmt.Sprintf("line: %d", pos.Line), hcl.Range{
-			Filename: azBlock.Range().Filename,
-			Start:    pos,
-			End:      b.Block.Range().End,
-		})
+	callBack := func(block Block) error {
+		return runner.EmitIssue(
+			r,
+			fmt.Sprintf("Arguments are expected to be sorted in following order:\n%s", block.ToString()),
+			block.DefRange(),
+		)
 	}
-	return nil
+	file, _ := runner.GetFile(azBlock.Range().Filename)
+	b := BuildResourceBlock(azBlock, file, callBack)
+	return b.CheckBlock()
 }
