@@ -11,6 +11,19 @@ import (
 	"strings"
 )
 
+// Block is an interface offering general APIs on resource/nested block
+type Block interface {
+	// CheckBlock checks the resourceBlock/nestedBlock recursively to find the block not in order,
+	// and invoke the callback function on that block
+	CheckBlock() error
+
+	// ToString prints the sorted block
+	ToString() string
+
+	// DefRange gets the definition range of the block
+	DefRange() hcl.Range
+}
+
 // ResourceBlock is the wrapper of a resource block
 type ResourceBlock struct {
 	File                 *hcl.File
@@ -62,30 +75,7 @@ func BuildResourceBlock(block *hclsyntax.Block, file *hcl.File,
 
 // CheckOrder checks whether the resourceBlock is sorted
 func (b *ResourceBlock) CheckOrder() bool {
-	sections := []Section{
-		b.HeadMetaArgs,
-		b.RequiredArgs,
-		b.OptionalArgs,
-		b.RequiredNestedBlocks,
-		b.OptionalNestedBlocks,
-		b.TailMetaArgs,
-		b.TailMetaNestedBlocks,
-	}
-	lastEndLine := -1
-	for _, s := range sections {
-		if !s.CheckOrder() {
-			return false
-		}
-		r := s.GetRange()
-		if r == nil {
-			continue
-		}
-		if r.Start.Line <= lastEndLine {
-			return false
-		}
-		lastEndLine = r.End.Line
-	}
-	return b.checkGap()
+	return b.checkSubSectionOrder() && b.checkGap()
 }
 
 // ToString prints the sorted resource block
@@ -200,6 +190,33 @@ func (b *ResourceBlock) buildArgGrpsWithNestedBlocks(nestedBlocks hclsyntax.Bloc
 			b.addOptionalNestedBlock(nb)
 		}
 	}
+}
+
+func (b *ResourceBlock) checkSubSectionOrder() bool {
+	sections := []Section{
+		b.HeadMetaArgs,
+		b.RequiredArgs,
+		b.OptionalArgs,
+		b.RequiredNestedBlocks,
+		b.OptionalNestedBlocks,
+		b.TailMetaArgs,
+		b.TailMetaNestedBlocks,
+	}
+	lastEndLine := -1
+	for _, s := range sections {
+		if !s.CheckOrder() {
+			return false
+		}
+		r := s.GetRange()
+		if r == nil {
+			continue
+		}
+		if r.Start.Line <= lastEndLine {
+			return false
+		}
+		lastEndLine = r.End.Line
+	}
+	return true
 }
 
 func (b *ResourceBlock) checkGap() bool {

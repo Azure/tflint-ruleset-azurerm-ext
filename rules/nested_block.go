@@ -12,19 +12,6 @@ import (
 	"strings"
 )
 
-// Block is an interface offering general APIs on resource/nested block
-type Block interface {
-	// CheckBlock checks the resourceBlock/nestedBlock recursively to find the block not in order,
-	// and invoke the callback function on that block
-	CheckBlock() error
-
-	// ToString prints the sorted block
-	ToString() string
-
-	// DefRange gets the definition range of the block
-	DefRange() hcl.Range
-}
-
 // NestedBlock is a wrapper of the nested block
 type NestedBlock struct {
 	File                 *hcl.File
@@ -63,28 +50,7 @@ func (b *NestedBlock) DefRange() hcl.Range {
 
 // CheckOrder checks whether the nestedBlock is sorted
 func (b *NestedBlock) CheckOrder() bool {
-	sections := []Section{
-		b.HeadMetaArgs,
-		b.RequiredArgs,
-		b.OptionalArgs,
-		b.RequiredNestedBlocks,
-		b.OptionalNestedBlocks,
-	}
-	lastEndLine := -1
-	for _, s := range sections {
-		if !s.CheckOrder() {
-			return false
-		}
-		r := s.GetRange()
-		if r == nil {
-			continue
-		}
-		if r.Start.Line <= lastEndLine {
-			return false
-		}
-		lastEndLine = r.End.Line
-	}
-	return b.checkGap()
+	return b.checkSubSectionOrder() && b.checkGap()
 }
 
 // ToString prints the sorted block
@@ -276,6 +242,31 @@ func (b *NestedBlock) addOptionalNestedBlock(nb *NestedBlock) {
 	b.OptionalNestedBlocks.add(nb)
 }
 
+func (b *NestedBlock) checkSubSectionOrder() bool {
+	sections := []Section{
+		b.HeadMetaArgs,
+		b.RequiredArgs,
+		b.OptionalArgs,
+		b.RequiredNestedBlocks,
+		b.OptionalNestedBlocks,
+	}
+	lastEndLine := -1
+	for _, s := range sections {
+		if !s.CheckOrder() {
+			return false
+		}
+		r := s.GetRange()
+		if r == nil {
+			continue
+		}
+		if r.Start.Line <= lastEndLine {
+			return false
+		}
+		lastEndLine = r.End.Line
+	}
+	return true
+}
+
 func (b *NestedBlock) checkGap() bool {
 	headMetaRange := mergeRange(b.HeadMetaArgs)
 	argRange := mergeRange(b.RequiredArgs, b.OptionalArgs)
@@ -292,48 +283,3 @@ func (b *NestedBlock) checkGap() bool {
 	}
 	return true
 }
-
-//func (b *NestedBlock) Check(current hcl.Pos) (hcl.Pos, bool) {
-//	if b.Range.Start.Line < current.Line {
-//		return b.Range.Start, false
-//	}
-//	current = b.Range.Start
-//	sections := []Section{
-//		b.HeadMetaArgs,
-//		b.RequiredArgs,
-//		b.OptionalArgs,
-//		b.RequiredNestedBlocks,
-//		b.OptionalNestedBlocks,
-//	}
-//	var sorted bool
-//	for _, s := range sections {
-//		if current, sorted = s.Check(current); !sorted {
-//			return current, false
-//		}
-//	}
-//	return b.Range.End, b.checkGap()
-//}
-
-//func (b *NestedBlocks) Check(current hcl.Pos) (hcl.Pos, bool) {
-//	if b == nil {
-//		return current, true
-//	}
-//	if b.Range.Start.Line < current.Line {
-//		return b.Range.Start, false
-//	}
-//	var sortField *string
-//	for _, nb := range b.Blocks {
-//		if sortField == nil {
-//			sortField = &nb.SortField
-//		}
-//		if *sortField > nb.SortField {
-//			return nb.Range.Start, false
-//		}
-//		var sorted bool
-//		if current, sorted = nb.Check(current); !sorted {
-//			return current, false
-//		}
-//		sortField = &nb.SortField
-//	}
-//	return b.Range.End, true
-//}
