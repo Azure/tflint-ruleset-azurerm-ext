@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"github.com/hashicorp/hcl/v2"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 )
 
@@ -18,17 +17,6 @@ func IsHeadMeta(argName string) bool {
 func IsTailMeta(argName string) bool {
 	_, isTailMeta := tailMetaArgPriority[argName]
 	return isTailMeta
-}
-
-// ComparePos compares the value of hcl.Pos pos1 and pos2,
-//negative result means pos1 is prior to pos2,
-//zero result means the 2 positions are identical,
-//positive result means pos2 is prior to pos1
-func ComparePos(pos1 hcl.Pos, pos2 hcl.Pos) int {
-	if pos1.Line == pos2.Line {
-		return pos1.Column - pos2.Column
-	}
-	return pos1.Line - pos2.Line
 }
 
 func getExistedRules() map[string]tflint.Rule {

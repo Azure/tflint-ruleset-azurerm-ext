@@ -12,12 +12,20 @@ import (
 	"strings"
 )
 
+// Block is an interface offering general APIs on resource/nested block
 type Block interface {
+	// CheckBlock checks the resourceBlock/nestedBlock recursively to find the block not in order,
+	// and invoke the callback function on that block
 	CheckBlock() error
+
+	// ToString prints the sorted block
 	ToString() string
+
+	// DefRange gets the definition range of the block
 	DefRange() hcl.Range
 }
 
+// NestedBlock is a wrapper of the nested block
 type NestedBlock struct {
 	File                 *hcl.File
 	Block                *hclsyntax.Block
@@ -30,12 +38,14 @@ type NestedBlock struct {
 	RequiredNestedBlocks *NestedBlocks
 	OptionalNestedBlocks *NestedBlocks
 	ParentBlockNames     []string
-	callBack             func(block Block) error
+	callback             func(block Block) error
 }
 
+// CheckBlock checks the nestedBlock recursively to find the block not in order,
+// and invoke the callback function on that block
 func (b *NestedBlock) CheckBlock() error {
 	if !b.CheckOrder() {
-		return b.callBack(b)
+		return b.callback(b)
 	}
 	var err error
 	for _, nb := range b.nestedBlocks() {
@@ -46,10 +56,12 @@ func (b *NestedBlock) CheckBlock() error {
 	return err
 }
 
+// DefRange gets the definition range of the nested block
 func (b *NestedBlock) DefRange() hcl.Range {
 	return b.Block.DefRange()
 }
 
+// CheckOrder checks whether the nestedBlock is sorted
 func (b *NestedBlock) CheckOrder() bool {
 	sections := []Section{
 		b.HeadMetaArgs,
@@ -75,6 +87,7 @@ func (b *NestedBlock) CheckOrder() bool {
 	return b.checkGap()
 }
 
+// ToString prints the sorted block
 func (b *NestedBlock) ToString() string {
 	headMetaTxt := mergePrint(b.HeadMetaArgs)
 	argsTxt := mergePrint(b.RequiredArgs, b.OptionalArgs)
@@ -95,28 +108,13 @@ func (b *NestedBlock) ToString() string {
 	return string(hclwrite.Format([]byte(txt)))
 }
 
+// NestedBlocks is the collection of nestedBlocks with the same type
 type NestedBlocks struct {
 	Blocks []*NestedBlock
 	Range  *hcl.Range
 }
 
-func (b *NestedBlocks) Add(arg *NestedBlock) {
-	b.Blocks = append(b.Blocks, arg)
-	if b.Range == nil {
-		b.Range = &hcl.Range{
-			Filename: arg.Range.Filename,
-			Start:    hcl.Pos{Line: math.MaxInt},
-			End:      hcl.Pos{Line: -1},
-		}
-	}
-	if b.Range.Start.Line > arg.Range.Start.Line {
-		b.Range.Start = arg.Range.Start
-	}
-	if b.Range.End.Line < arg.Range.End.Line {
-		b.Range.End = arg.Range.End
-	}
-}
-
+// CheckOrder checks whether this type of nestedBlocks are sorted
 func (b *NestedBlocks) CheckOrder() bool {
 	if b == nil {
 		return true
@@ -131,6 +129,7 @@ func (b *NestedBlocks) CheckOrder() bool {
 	return true
 }
 
+// ToString prints this type of nestedBlocks in order
 func (b *NestedBlocks) ToString() string {
 	if b == nil {
 		return ""
@@ -147,11 +146,29 @@ func (b *NestedBlocks) ToString() string {
 	return string(hclwrite.Format([]byte(strings.Join(lines, "\n"))))
 }
 
+// GetRange returns the entire range of this type of nestedBlocks
 func (b *NestedBlocks) GetRange() *hcl.Range {
 	if b == nil {
 		return nil
 	}
 	return b.Range
+}
+
+func (b *NestedBlocks) add(arg *NestedBlock) {
+	b.Blocks = append(b.Blocks, arg)
+	if b.Range == nil {
+		b.Range = &hcl.Range{
+			Filename: arg.Range.Filename,
+			Start:    hcl.Pos{Line: math.MaxInt},
+			End:      hcl.Pos{Line: -1},
+		}
+	}
+	if b.Range.Start.Line > arg.Range.Start.Line {
+		b.Range.Start = arg.Range.Start
+	}
+	if b.Range.End.Line < arg.Range.End.Line {
+		b.Range.End = arg.Range.End
+	}
 }
 
 func (b *NestedBlock) nestedBlocks() []*NestedBlock {
@@ -212,7 +229,7 @@ func (b *NestedBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) {
 		Block:            nestedBlock,
 		ParentBlockNames: parentBlockNames,
 		File:             b.File,
-		callBack:         b.callBack,
+		callback:         b.callback,
 	}
 	nb.buildArgGrpsWithAttrs(nestedBlock.Body.Attributes)
 	nb.buildNestedBlocks(nestedBlock.Body.Blocks)
@@ -228,35 +245,35 @@ func (b *NestedBlock) addHeadMeta(arg *Arg) {
 	if b.HeadMetaArgs == nil {
 		b.HeadMetaArgs = &HeadMetaArgs{}
 	}
-	b.HeadMetaArgs.Add(arg)
+	b.HeadMetaArgs.add(arg)
 }
 
 func (b *NestedBlock) addRequiredAttr(arg *Arg) {
 	if b.RequiredArgs == nil {
 		b.RequiredArgs = &Args{}
 	}
-	b.RequiredArgs.Add(arg)
+	b.RequiredArgs.add(arg)
 }
 
 func (b *NestedBlock) addOptionalAttr(arg *Arg) {
 	if b.OptionalArgs == nil {
 		b.OptionalArgs = &Args{}
 	}
-	b.OptionalArgs.Add(arg)
+	b.OptionalArgs.add(arg)
 }
 
 func (b *NestedBlock) addRequiredNestedBlock(nb *NestedBlock) {
 	if b.RequiredNestedBlocks == nil {
 		b.RequiredNestedBlocks = &NestedBlocks{}
 	}
-	b.RequiredNestedBlocks.Add(nb)
+	b.RequiredNestedBlocks.add(nb)
 }
 
 func (b *NestedBlock) addOptionalNestedBlock(nb *NestedBlock) {
 	if b.OptionalNestedBlocks == nil {
 		b.OptionalNestedBlocks = &NestedBlocks{}
 	}
-	b.OptionalNestedBlocks.Add(nb)
+	b.OptionalNestedBlocks.add(nb)
 }
 
 func (b *NestedBlock) checkGap() bool {

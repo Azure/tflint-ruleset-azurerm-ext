@@ -23,12 +23,14 @@ type ResourceBlock struct {
 	TailMetaArgs         *Args
 	TailMetaNestedBlocks *NestedBlocks
 	ParentBlockNames     []string
-	callBack             func(block Block) error
+	callback             func(block Block) error
 }
 
+// CheckBlock checks the resource block and nested block recursively to find the block not in order,
+// and invoke the callback function on that block
 func (b *ResourceBlock) CheckBlock() error {
 	if !b.CheckOrder() {
-		return b.callBack(b)
+		return b.callback(b)
 	}
 	var err error
 	for _, nb := range b.nestedBlocks() {
@@ -39,24 +41,26 @@ func (b *ResourceBlock) CheckBlock() error {
 	return err
 }
 
+// DefRange gets the definition range of the resource block
 func (b *ResourceBlock) DefRange() hcl.Range {
 	return b.Block.DefRange()
 }
 
 // BuildResourceBlock Build the root block wrapper using hclsyntax.Block
 func BuildResourceBlock(block *hclsyntax.Block, file *hcl.File,
-	callBack func(block Block) error) *ResourceBlock {
+	callback func(block Block) error) *ResourceBlock {
 	b := &ResourceBlock{
 		File:             file,
 		Block:            block,
 		ParentBlockNames: []string{block.Type, block.Labels[0]},
-		callBack:         callBack,
+		callback:         callback,
 	}
 	b.buildArgs(block.Body.Attributes)
 	b.buildArgGrpsWithNestedBlocks(block.Body.Blocks)
 	return b
 }
 
+// CheckOrder checks whether the resourceBlock is sorted
 func (b *ResourceBlock) CheckOrder() bool {
 	sections := []Section{
 		b.HeadMetaArgs,
@@ -84,6 +88,7 @@ func (b *ResourceBlock) CheckOrder() bool {
 	return b.checkGap()
 }
 
+// ToString prints the sorted resource block
 func (b *ResourceBlock) ToString() string {
 	headMetaTxt := mergePrint(b.HeadMetaArgs)
 	argTxt := mergePrint(b.RequiredArgs, b.OptionalArgs)
@@ -173,7 +178,7 @@ func (b *ResourceBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) *NestedBl
 		Block:            nestedBlock,
 		ParentBlockNames: parentBlockNames,
 		File:             b.File,
-		callBack:         b.callBack,
+		callback:         b.callback,
 	}
 	nb.buildArgGrpsWithAttrs(nestedBlock.Body.Attributes)
 	nb.buildNestedBlocks(nestedBlock.Body.Blocks)
@@ -220,71 +225,47 @@ func (b *ResourceBlock) addHeadMetaArg(arg *Arg) {
 	if b.HeadMetaArgs == nil {
 		b.HeadMetaArgs = &HeadMetaArgs{}
 	}
-	b.HeadMetaArgs.Add(arg)
+	b.HeadMetaArgs.add(arg)
 }
 
 func (b *ResourceBlock) addTailMetaArg(arg *Arg) {
 	if b.TailMetaArgs == nil {
 		b.TailMetaArgs = &Args{}
 	}
-	b.TailMetaArgs.Add(arg)
+	b.TailMetaArgs.add(arg)
 }
 
 func (b *ResourceBlock) addRequiredAttr(arg *Arg) {
 	if b.RequiredArgs == nil {
 		b.RequiredArgs = &Args{}
 	}
-	b.RequiredArgs.Add(arg)
+	b.RequiredArgs.add(arg)
 }
 
 func (b *ResourceBlock) addOptionalAttr(arg *Arg) {
 	if b.OptionalArgs == nil {
 		b.OptionalArgs = &Args{}
 	}
-	b.OptionalArgs.Add(arg)
+	b.OptionalArgs.add(arg)
 }
 
 func (b *ResourceBlock) addTailMetaNestedBlock(nb *NestedBlock) {
 	if b.TailMetaNestedBlocks == nil {
 		b.TailMetaNestedBlocks = &NestedBlocks{}
 	}
-	b.TailMetaNestedBlocks.Add(nb)
+	b.TailMetaNestedBlocks.add(nb)
 }
 
 func (b *ResourceBlock) addRequiredNestedBlock(nb *NestedBlock) {
 	if b.RequiredNestedBlocks == nil {
 		b.RequiredNestedBlocks = &NestedBlocks{}
 	}
-	b.RequiredNestedBlocks.Add(nb)
+	b.RequiredNestedBlocks.add(nb)
 }
 
 func (b *ResourceBlock) addOptionalNestedBlock(nb *NestedBlock) {
 	if b.OptionalNestedBlocks == nil {
 		b.OptionalNestedBlocks = &NestedBlocks{}
 	}
-	b.OptionalNestedBlocks.Add(nb)
+	b.OptionalNestedBlocks.add(nb)
 }
-
-func (b *ResourceBlock) ExpectedLayoutError() error {
-	return fmt.Errorf("new error")
-}
-
-//// Check recursively Checks whether the args in a block and its nested block are correctly sorted
-//func (b *ResourceBlock) Check(current hcl.Pos) (hcl.Pos, bool) {
-//	sections := []Section{
-//		b.HeadMetaArgs,
-//		b.RequiredArgs,
-//		b.OptionalArgs,
-//		b.RequiredNestedBlocks,
-//		b.OptionalNestedBlocks,
-//		b.TailMetaArgs,
-//		b.TailMetaNestedBlocks,
-//	}
-//	var sorted bool
-//	for _, s := range sections {
-//		if current, sorted = s.Check(current); !sorted {
-//			return current, false
-//		}
-//	}
-//	return *new(hcl.Pos), b.checkGap()
-//}

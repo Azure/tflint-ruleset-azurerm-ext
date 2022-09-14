@@ -9,9 +9,15 @@ import (
 	"strings"
 )
 
+// Section is an interface offering general APIs of argument collections
 type Section interface {
+	// CheckOrder checks whether the arguments in the collection is sorted
 	CheckOrder() bool
+
+	// ToString prints arguments in the collection in order
 	ToString() string
+
+	// GetRange returns the entire range of the argument collection
 	GetRange() *hcl.Range
 }
 
@@ -57,13 +63,14 @@ func mergeRange(sections ...Section) *hcl.Range {
 	}
 }
 
-// Arg includes attr and nested block defined in a block
+// Arg is a wrapper of the attribute
 type Arg struct {
 	Name  string
 	Range hcl.Range
 	File  *hcl.File
 }
 
+// ToString prints the arg content
 func (a *Arg) ToString() string {
 	return string(hclwrite.Format(a.Range.SliceBytes(a.File.Bytes)))
 }
@@ -74,11 +81,7 @@ type Args struct {
 	Range *hcl.Range
 }
 
-func (a *Args) Add(arg *Arg) {
-	a.Args = append(a.Args, arg)
-	a.updateRange(arg)
-}
-
+// CheckOrder checks whether this type of args are sorted
 func (a *Args) CheckOrder() bool {
 	if a == nil {
 		return true
@@ -93,6 +96,7 @@ func (a *Args) CheckOrder() bool {
 	return true
 }
 
+// ToString prints this type of args in order
 func (a *Args) ToString() string {
 	if a == nil {
 		return ""
@@ -109,6 +113,7 @@ func (a *Args) ToString() string {
 	return string(hclwrite.Format([]byte(strings.Join(lines, "\n"))))
 }
 
+// GetRange returns the entire range of this type of args
 func (a *Args) GetRange() *hcl.Range {
 	if a == nil {
 		return nil
@@ -116,17 +121,13 @@ func (a *Args) GetRange() *hcl.Range {
 	return a.Range
 }
 
-// HeadMetaArgs is the collection of args with the same type
+// HeadMetaArgs is the collection of head meta args
 type HeadMetaArgs struct {
 	Args  []*Arg
 	Range *hcl.Range
 }
 
-func (a *HeadMetaArgs) Add(arg *Arg) {
-	a.Args = append(a.Args, arg)
-	a.updateRange(arg)
-}
-
+// CheckOrder checks whether the head meta args are sorted
 func (a *HeadMetaArgs) CheckOrder() bool {
 	if a == nil {
 		return true
@@ -141,6 +142,7 @@ func (a *HeadMetaArgs) CheckOrder() bool {
 	return true
 }
 
+// ToString prints the head meta args in order
 func (a *HeadMetaArgs) ToString() string {
 	if a == nil {
 		return ""
@@ -157,11 +159,17 @@ func (a *HeadMetaArgs) ToString() string {
 	return string(hclwrite.Format([]byte(strings.Join(lines, "\n"))))
 }
 
+// GetRange returns the entire range of head meta args
 func (a *HeadMetaArgs) GetRange() *hcl.Range {
 	if a == nil {
 		return nil
 	}
 	return a.Range
+}
+
+func (a *Args) add(arg *Arg) {
+	a.Args = append(a.Args, arg)
+	a.updateRange(arg)
 }
 
 func (a *Args) updateRange(arg *Arg) {
@@ -178,6 +186,11 @@ func (a *Args) updateRange(arg *Arg) {
 	if a.Range.End.Line < arg.Range.End.Line {
 		a.Range.End = arg.Range.End
 	}
+}
+
+func (a *HeadMetaArgs) add(arg *Arg) {
+	a.Args = append(a.Args, arg)
+	a.updateRange(arg)
 }
 
 func (a *HeadMetaArgs) updateRange(arg *Arg) {
@@ -203,42 +216,3 @@ func buildAttrArg(attr *hclsyntax.Attribute, file *hcl.File) *Arg {
 		File:  file,
 	}
 }
-
-//func (a *HeadMetaArgs) Check(current hcl.Pos) (hcl.Pos, bool) {
-//	if a == nil {
-//		return current, true
-//	}
-//	if a.Range.Start.Line < current.Line {
-//		return a.Range.Start, false
-//	}
-//
-//	score := -1
-//	for _, arg := range a.Args.Args {
-//		if headMetaArgPriority[arg.Name] < score {
-//			return arg.Range.Start, false
-//		}
-//		score = headMetaArgPriority[arg.Name]
-//	}
-//	return a.Range.End, true
-//}
-
-//func (a *Args) Check(current hcl.Pos) (hcl.Pos, bool) {
-//	if a == nil {
-//		return current, true
-//	}
-//	if a.Range.Start.Line < current.Line {
-//		return a.Range.Start, false
-//	}
-//
-//	var name *string
-//	for _, arg := range a.Args {
-//		if name == nil {
-//			name = &arg.Name
-//		}
-//		if *name > arg.Name {
-//			return arg.Range.Start, false
-//		}
-//		name = &arg.Name
-//	}
-//	return a.Range.End, true
-//}
