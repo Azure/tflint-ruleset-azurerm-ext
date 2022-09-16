@@ -654,3 +654,21 @@ resource "azurerm_container_group" "example" {
 		})
 	}
 }
+
+func Test_NonAzurermResourceShouldNotBeChecked(t *testing.T) {
+	code := `
+resource "random_string" "key_vault_prefix" {
+  length  = 6
+  special = false
+  upper   = false
+  numeric = false
+}`
+	rule := NewRule(NewAzurermArgOrderRule())
+	runner := helper.TestRunner(t, map[string]string{"config.tf": code})
+	if err := rule.Check(runner); err != nil {
+		t.Fatalf("Unexpected error occurred: %s", err)
+	}
+	if len(runner.Issues) != 0 {
+		t.Fatalf("unexpected issue")
+	}
+}
