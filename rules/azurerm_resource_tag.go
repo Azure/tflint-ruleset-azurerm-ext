@@ -26,8 +26,7 @@ func (r *AzurermResourceTagRule) CheckFile(runner tflint.Runner, file *hcl.File)
 	var err error
 	for _, block := range blocks {
 		var subErr error
-		switch provider.RootBlockType(block.Type) {
-		case provider.Resource:
+		if block.Type == string(provider.Resource) {
 			subErr = r.visitAzResource(runner, block)
 		}
 		if subErr != nil {
@@ -47,30 +46,24 @@ func (r *AzurermResourceTagRule) visitAzResource(runner tflint.Runner, azBlock *
 }
 
 func (r *AzurermResourceTagRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
-	var err error
-	switch block.Type {
-	case "dynamic":
-		err = r.handleDynamicBlock(runner, block, parentBlockNames)
-	default:
-		err = r.handleGeneralBlock(runner, block, parentBlockNames)
+	if block.Type == "dynamic" {
+		return r.handleDynamicBlock(runner, block, parentBlockNames)
 	}
-	return err
+	return r.handleGeneralBlock(runner, block, parentBlockNames)
 }
 
 func (r *AzurermResourceTagRule) getNestedBlockSeq(parentBlockNames []string) string {
-	nestedBlockSeq := ""
 	if len(parentBlockNames) > 2 {
-		nestedBlockSeq = fmt.Sprintf("nested block `%s` of ", strings.Join(parentBlockNames[2:], " "))
+		return fmt.Sprintf("nested block `%s` of ", strings.Join(parentBlockNames[2:], " "))
 	}
-	return nestedBlockSeq
+	return ""
 }
 
 func (r *AzurermResourceTagRule) handleDynamicBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
 	var err error
 	for _, nestedBlock := range block.Body.Blocks {
 		var subErr error
-		switch nestedBlock.Type {
-		case "content":
+		if nestedBlock.Type == "content" {
 			subErr = r.visitBlock(runner, nestedBlock, parentBlockNames)
 		}
 		if subErr != nil {
@@ -81,10 +74,10 @@ func (r *AzurermResourceTagRule) handleDynamicBlock(runner tflint.Runner, block 
 }
 
 func (r *AzurermResourceTagRule) handleGeneralBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
-	var err error
 	argSchemas := provider.GetArgSchema(parentBlockNames)
 	_, isTagSupported := argSchemas["tags"]
 	_, isTagSet := block.Body.Attributes["tags"]
+	var err error
 	if isTagSupported && !isTagSet {
 		err = runner.EmitIssue(
 			r,
@@ -93,13 +86,11 @@ func (r *AzurermResourceTagRule) handleGeneralBlock(runner tflint.Runner, block 
 		)
 	}
 	for _, nestedBlock := range block.Body.Blocks {
-		var subErr error
-		switch nestedBlock.Type {
-		case "dynamic":
-			subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Labels[0]))
-		default:
-			subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type))
+		blockName := nestedBlock.Type
+		if nestedBlock.Type == "dynamic" {
+			blockName = nestedBlock.Labels[0]
 		}
+		subErr := r.visitBlock(runner, nestedBlock, append(parentBlockNames, blockName))
 		if subErr != nil {
 			err = multierror.Append(err, subErr)
 		}
