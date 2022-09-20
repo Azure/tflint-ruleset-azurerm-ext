@@ -65,13 +65,3 @@ func NewRule(r myRule) tflint.Rule {
 	r.setCheckFunc(r.CheckFile)
 	return r
 }
-
-func buildRules() {
-	myRules := []myRule{
-		NewAzurermArgOrderRule(),
-		NewAzurermResourceTagRule(),
-	}
-	for _, rule := range myRules {
-		Rules = append(Rules, NewRule(rule))
-	}
-}

@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+var _ myRule = new(AzurermResourceTagRule)
+
 // AzurermResourceTagRule checks whether the tags arg is specified if supported
 type AzurermResourceTagRule struct {
 	DefaultRule
@@ -93,13 +95,11 @@ func (r *AzurermResourceTagRule) handleGeneralBlock(runner tflint.Runner, block 
 		)
 	}
 	for _, nestedBlock := range block.Body.Blocks {
-		var subErr error
-		switch nestedBlock.Type {
-		case "dynamic":
-			subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Labels[0]))
-		default:
-			subErr = r.visitBlock(runner, nestedBlock, append(parentBlockNames, nestedBlock.Type))
+		blockName := nestedBlock.Type
+		if nestedBlock.Type == "dynamic" {
+			blockName = nestedBlock.Labels[0]
 		}
+		subErr := r.visitBlock(runner, nestedBlock, append(parentBlockNames, blockName))
 		if subErr != nil {
 			err = multierror.Append(err, subErr)
 		}

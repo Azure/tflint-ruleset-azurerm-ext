@@ -21,7 +21,7 @@ type Section interface {
 	GetRange() *hcl.Range
 }
 
-func mergePrint(sections ...Section) string {
+func toString(sections ...Section) string {
 	var lines []string
 	for _, section := range sections {
 		line := section.ToString()

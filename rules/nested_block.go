@@ -25,14 +25,14 @@ type NestedBlock struct {
 	RequiredNestedBlocks *NestedBlocks
 	OptionalNestedBlocks *NestedBlocks
 	ParentBlockNames     []string
-	callback             func(block Block) error
+	emit                 func(block Block) error
 }
 
 // CheckBlock checks the nestedBlock recursively to find the block not in order,
-// and invoke the callback function on that block
+// and invoke the emit function on that block
 func (b *NestedBlock) CheckBlock() error {
 	if !b.CheckOrder() {
-		return b.callback(b)
+		return b.emit(b)
 	}
 	var err error
 	for _, nb := range b.nestedBlocks() {
@@ -55,23 +55,23 @@ func (b *NestedBlock) CheckOrder() bool {
 
 // ToString prints the sorted block
 func (b *NestedBlock) ToString() string {
-	headMetaTxt := mergePrint(b.HeadMetaArgs)
-	argsTxt := mergePrint(b.RequiredArgs, b.OptionalArgs)
-	nbTxt := mergePrint(b.RequiredNestedBlocks, b.OptionalNestedBlocks)
-	var txts []string
-	for _, subTxt := range []string{headMetaTxt, argsTxt, nbTxt} {
-		if subTxt != "" {
-			txts = append(txts, subTxt)
+	headMeta := toString(b.HeadMetaArgs)
+	args := toString(b.RequiredArgs, b.OptionalArgs)
+	nb := toString(b.RequiredNestedBlocks, b.OptionalNestedBlocks)
+	var codes []string
+	for _, c := range []string{headMeta, args, nb} {
+		if c != "" {
+			codes = append(codes, c)
 		}
 	}
-	txt := strings.Join(txts, "\n\n")
+	code := strings.Join(codes, "\n\n")
 	blockHead := string(b.Block.DefRange().SliceBytes(b.File.Bytes))
-	if strings.TrimSpace(txt) == "" {
-		txt = fmt.Sprintf("%s {}", blockHead)
+	if strings.TrimSpace(code) == "" {
+		code = fmt.Sprintf("%s {}", blockHead)
 	} else {
-		txt = fmt.Sprintf("%s {\n%s\n}", blockHead, txt)
+		code = fmt.Sprintf("%s {\n%s\n}", blockHead, code)
 	}
-	return string(hclwrite.Format([]byte(txt)))
+	return string(hclwrite.Format([]byte(code)))
 }
 
 // NestedBlocks is the collection of nestedBlocks with the same type
@@ -147,9 +147,9 @@ func (b *NestedBlock) nestedBlocks() []*NestedBlock {
 	return nbs
 }
 
-func (b *NestedBlock) buildArgGrpsWithAttrs(attributes hclsyntax.Attributes) {
+func (b *NestedBlock) buildAttributes(attributes hclsyntax.Attributes) {
 	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
-	attrs := sortedAttributes(attributes)
+	attrs := attributesByLines(attributes)
 	for _, attr := range attrs {
 		attrName := attr.Name
 		arg := buildAttrArg(attr, b.File)
@@ -195,9 +195,9 @@ func (b *NestedBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) {
 		Block:            nestedBlock,
 		ParentBlockNames: parentBlockNames,
 		File:             b.File,
-		callback:         b.callback,
+		emit:             b.emit,
 	}
-	nb.buildArgGrpsWithAttrs(nestedBlock.Body.Attributes)
+	nb.buildAttributes(nestedBlock.Body.Attributes)
 	nb.buildNestedBlocks(nestedBlock.Body.Blocks)
 	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
 	if _, required := argSchemas[nb.Name]; required {

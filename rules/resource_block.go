@@ -14,7 +14,7 @@ import (
 // Block is an interface offering general APIs on resource/nested block
 type Block interface {
 	// CheckBlock checks the resourceBlock/nestedBlock recursively to find the block not in order,
-	// and invoke the callback function on that block
+	// and invoke the emit function on that block
 	CheckBlock() error
 
 	// ToString prints the sorted block
@@ -36,14 +36,14 @@ type ResourceBlock struct {
 	TailMetaArgs         *Args
 	TailMetaNestedBlocks *NestedBlocks
 	ParentBlockNames     []string
-	callback             func(block Block) error
+	emit                 func(block Block) error
 }
 
 // CheckBlock checks the resource block and nested block recursively to find the block not in order,
-// and invoke the callback function on that block
+// and invoke the emit function on that block
 func (b *ResourceBlock) CheckBlock() error {
 	if !b.CheckOrder() {
-		return b.callback(b)
+		return b.emit(b)
 	}
 	var err error
 	for _, nb := range b.nestedBlocks() {
@@ -61,30 +61,30 @@ func (b *ResourceBlock) DefRange() hcl.Range {
 
 // BuildResourceBlock Build the root block wrapper using hclsyntax.Block
 func BuildResourceBlock(block *hclsyntax.Block, file *hcl.File,
-	callback func(block Block) error) *ResourceBlock {
+	emitter func(block Block) error) *ResourceBlock {
 	b := &ResourceBlock{
 		File:             file,
 		Block:            block,
 		ParentBlockNames: []string{block.Type, block.Labels[0]},
-		callback:         callback,
+		emit:             emitter,
 	}
 	b.buildArgs(block.Body.Attributes)
-	b.buildArgGrpsWithNestedBlocks(block.Body.Blocks)
+	b.buildNestedBlocks(block.Body.Blocks)
 	return b
 }
 
 // CheckOrder checks whether the resourceBlock is sorted
 func (b *ResourceBlock) CheckOrder() bool {
-	return b.checkSubSectionOrder() && b.checkGap()
+	return b.sectionsSorted() && b.gaped()
 }
 
 // ToString prints the sorted resource block
 func (b *ResourceBlock) ToString() string {
-	headMetaTxt := mergePrint(b.HeadMetaArgs)
-	argTxt := mergePrint(b.RequiredArgs, b.OptionalArgs)
-	nbTxt := mergePrint(b.RequiredNestedBlocks, b.OptionalNestedBlocks)
-	tailMetaArgTxt := mergePrint(b.TailMetaArgs)
-	tailMetaNbTxt := mergePrint(b.TailMetaNestedBlocks)
+	headMetaTxt := toString(b.HeadMetaArgs)
+	argTxt := toString(b.RequiredArgs, b.OptionalArgs)
+	nbTxt := toString(b.RequiredNestedBlocks, b.OptionalNestedBlocks)
+	tailMetaArgTxt := toString(b.TailMetaArgs)
+	tailMetaNbTxt := toString(b.TailMetaNestedBlocks)
 	var txts []string
 	for _, subTxt := range []string{headMetaTxt, argTxt, nbTxt, tailMetaArgTxt, tailMetaNbTxt} {
 		if subTxt != "" {
@@ -113,7 +113,7 @@ func (b *ResourceBlock) nestedBlocks() []*NestedBlock {
 
 func (b *ResourceBlock) buildArgs(attributes hclsyntax.Attributes) {
 	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
-	attrs := sortedAttributes(attributes)
+	attrs := attributesByLines(attributes)
 	for _, attr := range attrs {
 		attrName := attr.Name
 		arg := buildAttrArg(attr, b.File)
@@ -134,7 +134,7 @@ func (b *ResourceBlock) buildArgs(attributes hclsyntax.Attributes) {
 	}
 }
 
-func sortedAttributes(attributes hclsyntax.Attributes) []*hclsyntax.Attribute {
+func attributesByLines(attributes hclsyntax.Attributes) []*hclsyntax.Attribute {
 	var attrs []*hclsyntax.Attribute
 	for _, attr := range attributes {
 		attrs = append(attrs, attr)
@@ -146,20 +146,15 @@ func sortedAttributes(attributes hclsyntax.Attributes) []*hclsyntax.Attribute {
 }
 
 func (b *ResourceBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) *NestedBlock {
-	var nestedBlockName, sortField string
-	switch nestedBlock.Type {
-	case "dynamic":
+	nestedBlockName := nestedBlock.Type
+	sortField := nestedBlock.Type
+	if nestedBlock.Type == "dynamic" {
 		nestedBlockName = nestedBlock.Labels[0]
 		sortField = strings.Join(nestedBlock.Labels, "")
-	default:
-		nestedBlockName = nestedBlock.Type
-		sortField = nestedBlock.Type
 	}
-	var parentBlockNames []string
-	if nestedBlockName == "content" && b.Block.Type == "dynamic" {
+	parentBlockNames := append(b.ParentBlockNames, nestedBlockName)
+	if b.Block.Type == "dynamic" && nestedBlockName == "content" {
 		parentBlockNames = b.ParentBlockNames
-	} else {
-		parentBlockNames = append(b.ParentBlockNames, nestedBlockName)
 	}
 	nb := &NestedBlock{
 		Name:             nestedBlockName,
@@ -168,14 +163,14 @@ func (b *ResourceBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) *NestedBl
 		Block:            nestedBlock,
 		ParentBlockNames: parentBlockNames,
 		File:             b.File,
-		callback:         b.callback,
+		emit:             b.emit,
 	}
-	nb.buildArgGrpsWithAttrs(nestedBlock.Body.Attributes)
+	nb.buildAttributes(nestedBlock.Body.Attributes)
 	nb.buildNestedBlocks(nestedBlock.Body.Blocks)
 	return nb
 }
 
-func (b *ResourceBlock) buildArgGrpsWithNestedBlocks(nestedBlocks hclsyntax.Blocks) {
+func (b *ResourceBlock) buildNestedBlocks(nestedBlocks hclsyntax.Blocks) {
 	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
 	for _, nestedBlock := range nestedBlocks {
 		nb := b.buildNestedBlock(nestedBlock)
@@ -192,7 +187,7 @@ func (b *ResourceBlock) buildArgGrpsWithNestedBlocks(nestedBlocks hclsyntax.Bloc
 	}
 }
 
-func (b *ResourceBlock) checkSubSectionOrder() bool {
+func (b *ResourceBlock) sectionsSorted() bool {
 	sections := []Section{
 		b.HeadMetaArgs,
 		b.RequiredArgs,
@@ -219,14 +214,16 @@ func (b *ResourceBlock) checkSubSectionOrder() bool {
 	return true
 }
 
-func (b *ResourceBlock) checkGap() bool {
-	headMetaRange := mergeRange(b.HeadMetaArgs)
-	argRange := mergeRange(b.RequiredArgs, b.OptionalArgs)
-	nbRange := mergeRange(b.RequiredNestedBlocks, b.OptionalNestedBlocks)
-	tailMetaArgRange := mergeRange(b.TailMetaArgs)
-	tailMetaNbRange := mergeRange(b.TailMetaNestedBlocks)
+func (b *ResourceBlock) gaped() bool {
+	ranges := []*hcl.Range{
+		b.HeadMetaArgs.GetRange(),
+		mergeRange(b.RequiredArgs, b.OptionalArgs),
+		mergeRange(b.RequiredNestedBlocks, b.OptionalNestedBlocks),
+		b.TailMetaArgs.GetRange(),
+		b.TailMetaNestedBlocks.GetRange(),
+	}
 	lastEndLine := -2
-	for _, r := range []*hcl.Range{headMetaRange, argRange, nbRange, tailMetaArgRange, tailMetaNbRange} {
+	for _, r := range ranges {
 		if r == nil {
 			continue
 		}

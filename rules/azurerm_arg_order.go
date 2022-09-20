@@ -9,6 +9,8 @@ import (
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 )
 
+var _ myRule = new(AzurermArgOrderRule)
+
 // AzurermArgOrderRule checks whether the arguments in a block are sorted in azure doc order
 type AzurermArgOrderRule struct {
 	DefaultRule
@@ -24,7 +26,7 @@ func (r *AzurermArgOrderRule) Name() string {
 	return "azurerm_arg_order"
 }
 
-// CheckFile checks whether the arguments in a block are sorted in azure doc order
+// CheckFile checks whether the arguments in a block are sorted in codex order
 func (r *AzurermArgOrderRule) CheckFile(runner tflint.Runner, file *hcl.File) error {
 	blocks := file.Body.(*hclsyntax.Body).Blocks
 	var err error
@@ -44,7 +46,7 @@ func (r *AzurermArgOrderRule) CheckFile(runner tflint.Runner, file *hcl.File) er
 }
 
 func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyntax.Block) error {
-	callback := func(block Block) error {
+	emitter := func(block Block) error {
 		return runner.EmitIssue(
 			r,
 			fmt.Sprintf("Arguments are expected to be sorted in following order:\n%s", block.ToString()),
@@ -52,6 +54,6 @@ func (r *AzurermArgOrderRule) visitAzBlock(runner tflint.Runner, azBlock *hclsyn
 		)
 	}
 	file, _ := runner.GetFile(azBlock.Range().Filename)
-	b := BuildResourceBlock(azBlock, file, callback)
+	b := BuildResourceBlock(azBlock, file, emitter)
 	return b.CheckBlock()
 }
