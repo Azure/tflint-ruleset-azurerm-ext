@@ -131,7 +131,7 @@ resource "azurerm_container_registry" "acr" {
 		},
 	}
 
-	rule := NewRule(NewAzurermResourceTagRule())
+	rule := NewAzurermResourceTagRule()
 
 	for _, tc := range cases {
 		runner := helper.TestRunner(t, map[string]string{"config.tf": tc.Content})

@@ -7,13 +7,30 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
+	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/project"
 )
 
-var _ myRule = new(AzurermArgOrderRule)
+var _ tflint.Rule = new(AzurermArgOrderRule)
 
 // AzurermArgOrderRule checks whether the arguments in a block are sorted in azure doc order
 type AzurermArgOrderRule struct {
-	DefaultRule
+	tflint.DefaultRule
+}
+
+func (r *AzurermArgOrderRule) Enabled() bool {
+	return false
+}
+
+func (r *AzurermArgOrderRule) Severity() tflint.Severity {
+	return tflint.NOTICE
+}
+
+func (r *AzurermArgOrderRule) Check(runner tflint.Runner) error {
+	return Check(runner, r.CheckFile)
+}
+
+func (r *AzurermArgOrderRule) Link() string {
+	return project.ReferenceLink(r.Name())
 }
 
 // NewAzurermArgOrderRule returns a new rule

@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 )
 
@@ -19,10 +21,16 @@ func IsTailMeta(argName string) bool {
 	return isTailMeta
 }
 
-func getExistedRules() map[string]tflint.Rule {
-	rules := make(map[string]tflint.Rule)
-	for _, rule := range Rules {
-		rules[rule.Name()] = rule
+// Check checks whether the tf config files match given rules
+func Check(runner tflint.Runner, check func(tflint.Runner, *hcl.File) error) error {
+	files, err := runner.GetFiles()
+	if err != nil {
+		return err
 	}
-	return rules
+	for _, file := range files {
+		if subErr := check(runner, file); subErr != nil {
+			err = multierror.Append(err, subErr)
+		}
+	}
+	return err
 }

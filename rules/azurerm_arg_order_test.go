@@ -642,7 +642,7 @@ resource "azurerm_container_group" "example" {
 		},
 	}
 
-	rule := NewRule(NewAzurermArgOrderRule())
+	rule := NewAzurermArgOrderRule()
 
 	for _, tc := range cases {
 		runner := helper.TestRunner(t, map[string]string{"config.tf": tc.Content})
@@ -663,7 +663,7 @@ resource "random_string" "key_vault_prefix" {
   upper   = false
   numeric = false
 }`
-	rule := NewRule(NewAzurermArgOrderRule())
+	rule := NewAzurermArgOrderRule()
 	runner := helper.TestRunner(t, map[string]string{"config.tf": code})
 	if err := rule.Check(runner); err != nil {
 		t.Fatalf("Unexpected error occurred: %s", err)

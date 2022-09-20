@@ -7,14 +7,35 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
+	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/project"
 	"strings"
 )
 
-var _ myRule = new(AzurermResourceTagRule)
+var _ tflint.Rule = new(AzurermResourceTagRule)
 
 // AzurermResourceTagRule checks whether the tags arg is specified if supported
 type AzurermResourceTagRule struct {
-	DefaultRule
+	tflint.DefaultRule
+}
+
+func (r *AzurermResourceTagRule) Name() string {
+	return "azurerm_resource_tag"
+}
+
+func (r *AzurermResourceTagRule) Enabled() bool {
+	return false
+}
+
+func (r *AzurermResourceTagRule) Severity() tflint.Severity {
+	return tflint.NOTICE
+}
+
+func (r *AzurermResourceTagRule) Link() string {
+	return project.ReferenceLink(r.Name())
+}
+
+func (r *AzurermResourceTagRule) Check(runner tflint.Runner) error {
+	return Check(runner, r.CheckFile)
 }
 
 // NewAzurermResourceTagRule returns a new rule
