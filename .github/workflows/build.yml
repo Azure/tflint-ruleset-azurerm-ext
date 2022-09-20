@@ -3,7 +3,8 @@ name: build
 on:
   push:
     branches:
-      - delivery
+      - master
+      - main
   pull_request:
 
 jobs:
