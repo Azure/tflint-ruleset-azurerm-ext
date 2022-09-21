@@ -22,7 +22,7 @@ func main() {
 func prepare() {
 	clean()
 	if err := exec.Command("git", "clone", "--depth", "1", "https://github.com/hashicorp/terraform-provider-azurerm.git").Run(); err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	os.RemoveAll("./terraform-provider-azurerm/.git")
 	injectProviderCode()
@@ -37,7 +37,7 @@ func prepare() {
 func injectProviderCode() {
 	exist, err := exists("terraform-provider-azurerm/provider")
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	if !exist {
 		copyInjectionCode()
@@ -48,7 +48,7 @@ func copyInjectionCode() {
 	_ = os.MkdirAll(filepath.Join("terraform-provider-azurerm", "provider"), os.ModePerm)
 	dir, err := os.ReadDir("provider")
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	for _, file := range dir {
 		copyFile(filepath.Join("provider", file.Name()), filepath.Join("terraform-provider-azurerm", "provider", strings.TrimSuffix(file.Name(), ".tmp")))
@@ -58,11 +58,11 @@ func copyInjectionCode() {
 func copyFile(src, dst string) {
 	bytesRead, err := os.ReadFile(src)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	err = os.WriteFile(dst, bytesRead, 0644)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 }
 
@@ -80,11 +80,11 @@ func exists(path string) (bool, error) {
 func clean() {
 	err := os.RemoveAll("./terraform-provider-azurerm")
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	err = os.RemoveAll("./vendor")
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 }
 
@@ -97,6 +97,6 @@ func install() {
 	_ = os.MkdirAll(outputDir, os.ModePerm)
 	cmd := exec.Command("go", "build", "-o", outputDir)
 	if err := cmd.Run(); err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 }
