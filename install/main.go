@@ -26,6 +26,51 @@ func main() {
 
 func prepare() {
 	clean()
+	latest, err := latestTag()
+	prepareTerraformAzurermProviderCode(latest, err)
+	injectProviderCode()
+	goModEnsure()
+}
+
+func goModEnsure() {
+	if err := exec.Command("go", "mod", "tidy").Run(); err != nil {
+		panic(err.Error())
+	}
+	if err := exec.Command("go", "mod", "vendor").Run(); err != nil {
+		panic(err.Error())
+	}
+}
+
+func prepareTerraformAzurermProviderCode(latest string, err error) {
+	link := fmt.Sprintf("https://github.com/hashicorp/terraform-provider-azurerm/archive/refs/tags/%s.zip", latest)
+	fmt.Printf("Getting %s\n", link)
+	_, err = getter.Get(context.TODO(), "./", link)
+	if err != nil {
+		panic(err.Error())
+	}
+	err = os.Rename(fmt.Sprintf("terraform-provider-azurerm-%s", strings.TrimLeft(latest, "v")), "terraform-provider-azurerm")
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
+func latestTag() (string, error) {
+	c := gitClient()
+	tags, _, err := c.Repositories.ListTags(context.TODO(), "hashicorp", "terraform-provider-azurerm", &github.ListOptions{
+		Page:    0,
+		PerPage: 10,
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+	if len(tags) == 0 {
+		panic("no terraform-azurerm-provider tags found")
+	}
+	latest := tags[0].GetName()
+	return latest, err
+}
+
+func gitClient() *github.Client {
 	var client *github.Client
 	token := os.Getenv("TOKEN")
 	if token != "" {
@@ -37,36 +82,7 @@ func prepare() {
 	} else {
 		client = github.NewClient(nil)
 	}
-	tags, _, err := client.Repositories.ListTags(context.TODO(), "hashicorp", "terraform-provider-azurerm", &github.ListOptions{
-		Page:    0,
-		PerPage: 10,
-	})
-	if err != nil {
-		panic(err.Error())
-	}
-	if len(tags) == 0 {
-		panic("no terraform-azurerm-provider tags found")
-	}
-	latest := tags[0].GetName()
-	link := fmt.Sprintf("https://github.com/hashicorp/terraform-provider-azurerm/archive/refs/tags/%s.zip", latest)
-	fmt.Printf("Getting %s\n", link)
-	_, err = getter.Get(context.TODO(), "./", link)
-	if err != nil {
-		panic(err.Error())
-	}
-	err = os.Rename(fmt.Sprintf("terraform-provider-azurerm-%s", strings.TrimLeft(latest, "v")), "terraform-provider-azurerm")
-	if err != nil {
-		panic(err.Error())
-	}
-
-	//os.RemoveAll("./terraform-provider-azurerm/.git")
-	injectProviderCode()
-	if err := exec.Command("go", "mod", "tidy").Run(); err != nil {
-		panic(err.Error())
-	}
-	if err := exec.Command("go", "mod", "vendor").Run(); err != nil {
-		panic(err.Error())
-	}
+	return client
 }
 
 func injectProviderCode() {
