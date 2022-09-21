@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/go-git/go-git/v5"
 )
 
 func main() {
@@ -21,9 +23,15 @@ func main() {
 
 func prepare() {
 	clean()
-	if err := exec.Command("git", "clone", "--depth", "1", "https://github.com/hashicorp/terraform-provider-azurerm.git").Run(); err != nil {
+	_, err := git.PlainClone("terraform-provider-azurerm", false, &git.CloneOptions{
+		URL:      "https://github.com/hashicorp/terraform-provider-azurerm.git",
+		Depth:    1,
+		Progress: os.Stdout,
+	})
+	if err != nil {
 		panic(err.Error())
 	}
+
 	os.RemoveAll("./terraform-provider-azurerm/.git")
 	injectProviderCode()
 	if err := exec.Command("go", "mod", "tidy").Run(); err != nil {
