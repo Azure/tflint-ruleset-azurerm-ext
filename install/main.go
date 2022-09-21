@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"golang.org/x/oauth2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,7 +26,17 @@ func main() {
 
 func prepare() {
 	clean()
-	client := github.NewClient(nil)
+	var client *github.Client
+	token := os.Getenv("TOKEN")
+	if token != "" {
+		ts := oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: token},
+		)
+		tc := oauth2.NewClient(context.TODO(), ts)
+		client = github.NewClient(tc)
+	} else {
+		client = github.NewClient(nil)
+	}
 	tags, _, err := client.Repositories.ListTags(context.TODO(), "hashicorp", "terraform-provider-azurerm", &github.ListOptions{
 		Page:    0,
 		PerPage: 10,

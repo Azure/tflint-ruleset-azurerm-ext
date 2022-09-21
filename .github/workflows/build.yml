@@ -1,11 +1,13 @@
 name: build
-
 on:
   push:
     branches:
       - master
       - main
   pull_request:
+
+env:
+  TOKEN: ${{secret.GITHUB_TOKEN}}
 
 jobs:
   test:
