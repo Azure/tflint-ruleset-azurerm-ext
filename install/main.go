@@ -38,7 +38,7 @@ func prepare() {
 	}
 	latest := tags[0].GetName()
 	link := fmt.Sprintf("git::https://github.com/hashicorp/terraform-provider-azurerm.git?ref=%s", latest)
-	fmt.Println(fmt.Sprintf("Getting %s", link))
+	fmt.Printf("Getting %s\n", link)
 	_, err = getter.Get(context.TODO(), "terraform-provider-azurerm/", link)
 	if err != nil {
 		panic(err.Error())

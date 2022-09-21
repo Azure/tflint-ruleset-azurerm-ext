@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  tflint:
+  e2e:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: 1.18
+      - name: Turn on longpaths for git
+        run: git config --system core.longpaths true
       - name: Run install
         run: make install
       - name: Run e2e tests
