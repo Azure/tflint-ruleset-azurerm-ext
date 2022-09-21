@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,7 +9,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/go-git/go-git/v5"
+	"github.com/google/go-github/v47/github"
+	"github.com/hashicorp/go-getter/v2"
 )
 
 func main() {
@@ -23,11 +25,21 @@ func main() {
 
 func prepare() {
 	clean()
-	_, err := git.PlainClone("terraform-provider-azurerm", false, &git.CloneOptions{
-		URL:      "https://github.com/hashicorp/terraform-provider-azurerm.git",
-		Depth:    1,
-		Progress: os.Stdout,
+	client := github.NewClient(nil)
+	tags, _, err := client.Repositories.ListTags(context.TODO(), "hashicorp", "terraform-provider-azurerm", &github.ListOptions{
+		Page:    0,
+		PerPage: 10,
 	})
+	if err != nil {
+		panic(err.Error())
+	}
+	if len(tags) == 0 {
+		panic("no terraform-azurerm-provider tags found")
+	}
+	latest := tags[0].GetName()
+	link := fmt.Sprintf("git::https://github.com/hashicorp/terraform-provider-azurerm.git?ref=%s", latest)
+	fmt.Println(fmt.Sprintf("Getting %s", link))
+	_, err = getter.Get(context.TODO(), "terraform-provider-azurerm/", link)
 	if err != nil {
 		panic(err.Error())
 	}
