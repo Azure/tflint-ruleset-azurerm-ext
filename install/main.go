@@ -37,14 +37,18 @@ func prepare() {
 		panic("no terraform-azurerm-provider tags found")
 	}
 	latest := tags[0].GetName()
-	link := fmt.Sprintf("git::https://github.com/hashicorp/terraform-provider-azurerm.git?ref=%s", latest)
+	link := fmt.Sprintf("https://github.com/hashicorp/terraform-provider-azurerm/archive/refs/tags/%s.zip", latest)
 	fmt.Printf("Getting %s\n", link)
-	_, err = getter.Get(context.TODO(), "terraform-provider-azurerm/", link)
+	_, err = getter.Get(context.TODO(), "./", link)
+	if err != nil {
+		panic(err.Error())
+	}
+	err = os.Rename(fmt.Sprintf("terraform-provider-azurerm-%s", strings.TrimLeft(latest, "v")), "terraform-provider-azurerm")
 	if err != nil {
 		panic(err.Error())
 	}
 
-	os.RemoveAll("./terraform-provider-azurerm/.git")
+	//os.RemoveAll("./terraform-provider-azurerm/.git")
 	injectProviderCode()
 	if err := exec.Command("go", "mod", "tidy").Run(); err != nil {
 		panic(err.Error())
