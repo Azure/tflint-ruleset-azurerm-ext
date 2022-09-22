@@ -28,7 +28,7 @@ signs:
   - artifacts: checksum
 release:
   github:
-    owner: ${{ env.GITHUB_REPOSITORY_OWNER }}
+    owner: Azure
     name: tflint-ruleset-azurerm-ext
 snapshot:
   name_template: "{{ .Tag }}-dev"
