@@ -640,6 +640,12 @@ resource "azurerm_container_group" "example" {
 }`,
 			Expected: helper.Issues{},
 		},
+		{
+			Name: "non-wanted type block",
+			Content: `
+locals{}`,
+			Expected: helper.Issues{},
+		},
 	}
 
 	rule := NewAzurermArgOrderRule()

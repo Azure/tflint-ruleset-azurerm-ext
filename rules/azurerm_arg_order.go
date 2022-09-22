@@ -51,6 +51,9 @@ func (r *AzurermArgOrderRule) CheckFile(runner tflint.Runner, file *hcl.File) er
 		var subErr error
 		rootBlockType := provider.RootBlockType(block.Type)
 		_, typeWanted := provider.RootBlockTypes[rootBlockType]
+		if !typeWanted {
+			continue
+		}
 		isAzBlock := provider.GetArgSchema([]string{block.Type, block.Labels[0]}) != nil
 		if typeWanted && isAzBlock {
 			subErr = r.visitAzBlock(runner, block)

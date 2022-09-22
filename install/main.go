@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"golang.org/x/oauth2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/google/go-github/v47/github"
 	"github.com/hashicorp/go-getter/v2"
+	"golang.org/x/oauth2"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func goModEnsure() {
 func prepareTerraformAzurermProviderCode(latest string) {
 	link := fmt.Sprintf("https://github.com/hashicorp/terraform-provider-azurerm/archive/refs/tags/%s.zip", latest)
 	fmt.Printf("Getting %s\n", link)
-	_, err := getter.Get(context.TODO(), "./", link)
+	_, err := getter.Get(context.Background(), "./", link)
 	if err != nil {
 		panic(err.Error())
 	}

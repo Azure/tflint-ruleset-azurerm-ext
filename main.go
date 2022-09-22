@@ -12,10 +12,7 @@ func main() {
 		RuleSet: &tflint.BuiltinRuleSet{
 			Name:    "azurerm-ext",
 			Version: project.Version,
-			Rules: []tflint.Rule{
-				rules.NewAzurermArgOrderRule(),
-				rules.NewAzurermResourceTagRule(),
-			},
+			Rules:   rules.Rules,
 		},
 	})
 }
