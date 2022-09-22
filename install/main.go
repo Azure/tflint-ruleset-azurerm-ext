@@ -26,8 +26,8 @@ func main() {
 
 func prepare() {
 	clean()
-	latest, err := latestTag()
-	prepareTerraformAzurermProviderCode(latest, err)
+	latest := latestTag()
+	prepareTerraformAzurermProviderCode(latest)
 	injectProviderCode()
 	goModEnsure()
 }
@@ -41,10 +41,10 @@ func goModEnsure() {
 	}
 }
 
-func prepareTerraformAzurermProviderCode(latest string, err error) {
+func prepareTerraformAzurermProviderCode(latest string) {
 	link := fmt.Sprintf("https://github.com/hashicorp/terraform-provider-azurerm/archive/refs/tags/%s.zip", latest)
 	fmt.Printf("Getting %s\n", link)
-	_, err = getter.Get(context.TODO(), "./", link)
+	_, err := getter.Get(context.TODO(), "./", link)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -54,7 +54,7 @@ func prepareTerraformAzurermProviderCode(latest string, err error) {
 	}
 }
 
-func latestTag() (string, error) {
+func latestTag() string {
 	c := gitClient()
 	tags, _, err := c.Repositories.ListTags(context.TODO(), "hashicorp", "terraform-provider-azurerm", &github.ListOptions{
 		Page:    0,
@@ -67,7 +67,7 @@ func latestTag() (string, error) {
 		panic("no terraform-azurerm-provider tags found")
 	}
 	latest := tags[0].GetName()
-	return latest, err
+	return latest
 }
 
 func gitClient() *github.Client {
