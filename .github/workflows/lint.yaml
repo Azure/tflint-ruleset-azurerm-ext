@@ -25,3 +25,15 @@ jobs:
         run: |
           make prepare
           docker run --rm -v $(pwd):/src -w /src golangci/golangci-lint golangci-lint run --timeout 1h --skip-dirs integration --skip-dirs terraform-provider-azurerm -v ./...
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: './...'
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: go
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
