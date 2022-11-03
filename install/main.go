@@ -42,15 +42,10 @@ func goModEnsure() {
 }
 
 func prepareTerraformAzurermProviderCode(latest string) {
-	link := fmt.Sprintf("https://github.com/hashicorp/terraform-provider-azurerm/archive/refs/tags/%s.zip", latest)
-	fmt.Printf("Getting %s\n", link)
-	_, err := getter.Get(context.Background(), "./", link)
+	repoUrl := fmt.Sprintf("github.com/hashicorp/terraform-provider-azurerm?ref=%s&&depth=1", latest)
+	_, err := getter.Get(context.Background(), "terraform-provider-azurerm", repoUrl)
 	if err != nil {
-		panic(err.Error())
-	}
-	err = os.Rename(fmt.Sprintf("terraform-provider-azurerm-%s", strings.TrimLeft(latest, "v")), "terraform-provider-azurerm")
-	if err != nil {
-		panic(err.Error())
+		panic(fmt.Sprintf("cannot clone repo:%s", err.Error()))
 	}
 }
 
@@ -102,18 +97,14 @@ func copyInjectionCode() {
 		panic(err.Error())
 	}
 	for _, file := range dir {
-		copyFile(filepath.Join("provider", file.Name()), filepath.Join("terraform-provider-azurerm", "provider", strings.TrimSuffix(file.Name(), ".tmp")))
-	}
-}
-
-func copyFile(src, dst string) {
-	bytesRead, err := os.ReadFile(src)
-	if err != nil {
-		panic(err.Error())
-	}
-	err = os.WriteFile(dst, bytesRead, 0644)
-	if err != nil {
-		panic(err.Error())
+		bytesRead, err := os.ReadFile(filepath.Join("provider", file.Name()))
+		if err != nil {
+			panic(err.Error())
+		}
+		err = os.WriteFile(filepath.Join("terraform-provider-azurerm", "provider", strings.TrimSuffix(file.Name(), ".tmp")), bytesRead, 0600)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
 }
 
@@ -146,6 +137,7 @@ func install() {
 		outputDir = fmt.Sprintf(`%s\.tflint.d\plugins`, baseDir)
 	}
 	_ = os.MkdirAll(outputDir, os.ModePerm)
+	//#nosec G204
 	cmd := exec.Command("go", "build", "-o", outputDir)
 	if err := cmd.Run(); err != nil {
 		panic(err.Error())

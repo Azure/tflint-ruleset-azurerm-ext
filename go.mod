@@ -7,7 +7,7 @@ require (
 	github.com/google/go-github/v47 v47.1.0
 	github.com/hashicorp/go-getter/v2 v2.1.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/hcl/v2 v2.14.0
+	github.com/hashicorp/hcl/v2 v2.14.1
 	github.com/hashicorp/terraform-provider-azurerm v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.7.2
 	github.com/terraform-linters/tflint-plugin-sdk v0.12.0
@@ -39,8 +39,8 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-azure-helpers v0.43.0 // indirect
-	github.com/hashicorp/go-azure-sdk v0.20221004.1155444 // indirect
+	github.com/hashicorp/go-azure-helpers v0.47.0 // indirect
+	github.com/hashicorp/go-azure-sdk v0.20221102.1171058 // indirect
 	github.com/hashicorp/go-checkpoint v0.5.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320 // indirect
@@ -60,7 +60,7 @@ require (
 	github.com/hashicorp/terraform-registry-address v0.0.0-20220623143253-7d51757b572c // indirect
 	github.com/hashicorp/terraform-svchost v0.0.0-20200729002733-f050f53b9734 // indirect
 	github.com/hashicorp/yamux v0.0.0-20210316155119-a95892c5f864 // indirect
-	github.com/manicminer/hamilton v0.44.0 // indirect
+	github.com/manicminer/hamilton v0.50.0 // indirect
 	github.com/manicminer/hamilton-autorest v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -75,6 +75,7 @@ require (
 	github.com/rickb777/date v1.12.5-0.20200422084442-6300e543c4d9 // indirect
 	github.com/rickb777/plural v1.2.0 // indirect
 	github.com/tombuildsstuff/giovanni v0.20.0 // indirect
+	github.com/tombuildsstuff/kermit v0.20221031.1114338 // indirect
 	github.com/ulikunitz/xz v0.5.8 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
