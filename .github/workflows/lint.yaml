@@ -28,12 +28,13 @@ jobs:
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
-          args: './...'
+          args: '-exclude-dir=provider ./...'
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
           languages: go
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+      - name: Run build
+        run:
+          make build
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
