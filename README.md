@@ -1,8 +1,8 @@
 # TFLint Ruleset for terraform-provider-azurerm-ext
 
-![test](https://img.shields.io/github/workflow/status/Azure/tflint-ruleset-azurerm-ext/build?label=build)
-![lint](https://img.shields.io/github/workflow/status/Azure/tflint-ruleset-azurerm-ext/lint?label=lint)
-![e2e](https://img.shields.io/github/workflow/status/Azure/tflint-ruleset-azurerm-ext/e2e?label=e2e)
+![test](https://img.shields.io/github/actions/workflow/status/Azure/tflint-ruleset-azurerm-ext/build.yml)
+![lint](https://img.shields.io/github/actions/workflow/status/Azure/tflint-ruleset-azurerm-ext/lint.yaml)
+![e2e](https://img.shields.io/github/actions/workflow/status/Azure/tflint-ruleset-azurerm-ext/e2e.yaml)
 
 TFLint ruleset extension plugin for Terraform Provider for Azure (Resource Manager)
 
