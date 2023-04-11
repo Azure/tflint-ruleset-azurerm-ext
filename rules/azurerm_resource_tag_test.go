@@ -38,60 +38,7 @@ resource "azurerm_container_group" "example" {
 			},
 		},
 		{
-			Name: "2. nested block",
-			Content: `
-resource "azurerm_container_registry" "acr" {
-  name                = "containerRegistry1"
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
-  sku                 = "Premium"
-  admin_enabled       = false
-  tags = {
-    environment = "testing"
-  }
-
-  georeplications {
-    location                = "westeurope"
-    zone_redundancy_enabled = true
-  }
-}`,
-			Expected: helper.Issues{
-				{
-					Rule:    NewAzurermResourceTagRule(),
-					Message: "`tags` argument is not set but supported in nested block `georeplications` of resource `azurerm_container_registry`",
-				},
-			},
-		},
-		{
-			Name: "3. dynamic block",
-			Content: `
-resource "azurerm_container_registry" "acr" {
-  name                = "containerRegistry1"
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
-  sku                 = "Premium"
-  admin_enabled       = false
-  tags = {
-    environment = "testing"
-  }
-
-  dynamic "georeplications" {
-    for_each = var.georeplications
-    content {
-      location                = georeplications.location
-      zone_redundancy_enabled = georeplications.zone_redundancy_enabled
-    }
-  }
-}`,
-			Expected: helper.Issues{
-				{
-					Rule:    NewAzurermResourceTagRule(),
-					Message: "`tags` argument is not set but supported in nested block `georeplications` of resource `azurerm_container_registry`",
-				},
-			},
-		},
-		{
-			Name: "4. tags are set anywhere if supported",
+			Name: "2. tags are set anywhere if supported",
 			Content: `
 resource "azurerm_resource_group" "rg" {
   name     = "myTFResourceGroup"

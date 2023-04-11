@@ -2,10 +2,11 @@ package rules
 
 import (
 	"fmt"
+	"github.com/ahmetb/go-linq/v3"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/hashicorp/terraform-provider-azurerm/provider"
+	"github.com/lonegunmanb/terraform-azurerm-schema/v3/generated"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/project"
 )
@@ -49,13 +50,17 @@ func (r *AzurermArgOrderRule) CheckFile(runner tflint.Runner, file *hcl.File) er
 	var err error
 	for _, block := range blocks {
 		var subErr error
-		rootBlockType := provider.RootBlockType(block.Type)
-		_, typeWanted := provider.RootBlockTypes[rootBlockType]
+		typeWanted := linq.From([]string{"provider", "resource", "data"}).Contains(block.Type)
 		if !typeWanted {
 			continue
 		}
-		isAzBlock := provider.GetArgSchema([]string{block.Type, block.Labels[0]}) != nil
-		if typeWanted && isAzBlock {
+		isAzProviderBlock := block.Type == "provider" && block.Labels[0] == "azurerm"
+		collection := generated.Resources
+		if block.Type == "data" {
+			collection = generated.DataSources
+		}
+		_, isAzBlock := collection[block.Labels[0]]
+		if typeWanted && (isAzProviderBlock || isAzBlock) {
 			subErr = r.visitAzBlock(runner, block)
 		}
 		if subErr != nil {

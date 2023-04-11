@@ -2,13 +2,13 @@ package rules
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/hashicorp/terraform-provider-azurerm/provider"
+	"github.com/lonegunmanb/terraform-azurerm-schema/v3/generated"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/project"
-	"strings"
 )
 
 var _ tflint.Rule = new(AzurermResourceTagRule)
@@ -49,8 +49,8 @@ func (r *AzurermResourceTagRule) CheckFile(runner tflint.Runner, file *hcl.File)
 	var err error
 	for _, block := range blocks {
 		var subErr error
-		switch provider.RootBlockType(block.Type) {
-		case provider.Resource:
+		switch block.Type {
+		case "resource":
 			subErr = r.visitAzResource(runner, block)
 		}
 		if subErr != nil {
@@ -61,69 +61,18 @@ func (r *AzurermResourceTagRule) CheckFile(runner tflint.Runner, file *hcl.File)
 }
 
 func (r *AzurermResourceTagRule) visitAzResource(runner tflint.Runner, azBlock *hclsyntax.Block) error {
-	parentBlockNames := []string{azBlock.Type, azBlock.Labels[0]}
-	argSchemas := provider.GetArgSchema(parentBlockNames)
+	argSchemas := generated.Resources[azBlock.Labels[0]]
 	if argSchemas == nil {
 		return nil
 	}
-	return r.visitBlock(runner, azBlock, parentBlockNames)
-}
-
-func (r *AzurermResourceTagRule) visitBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
-	var err error
-	switch block.Type {
-	case "dynamic":
-		err = r.handleDynamicBlock(runner, block, parentBlockNames)
-	default:
-		err = r.handleGeneralBlock(runner, block, parentBlockNames)
-	}
-	return err
-}
-
-func (r *AzurermResourceTagRule) getNestedBlockSeq(parentBlockNames []string) string {
-	nestedBlockSeq := ""
-	if len(parentBlockNames) > 2 {
-		nestedBlockSeq = fmt.Sprintf("nested block `%s` of ", strings.Join(parentBlockNames[2:], " "))
-	}
-	return nestedBlockSeq
-}
-
-func (r *AzurermResourceTagRule) handleDynamicBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
-	var err error
-	for _, nestedBlock := range block.Body.Blocks {
-		var subErr error
-		switch nestedBlock.Type {
-		case "content":
-			subErr = r.visitBlock(runner, nestedBlock, parentBlockNames)
-		}
-		if subErr != nil {
-			err = multierror.Append(err, subErr)
-		}
-	}
-	return err
-}
-
-func (r *AzurermResourceTagRule) handleGeneralBlock(runner tflint.Runner, block *hclsyntax.Block, parentBlockNames []string) error {
-	var err error
-	argSchemas := provider.GetArgSchema(parentBlockNames)
-	_, isTagSupported := argSchemas["tags"]
-	_, isTagSet := block.Body.Attributes["tags"]
+	_, isTagSupported := argSchemas.Block.Attributes["tags"]
+	_, isTagSet := azBlock.Body.Attributes["tags"]
 	if isTagSupported && !isTagSet {
-		err = runner.EmitIssue(
+		return runner.EmitIssue(
 			r,
-			fmt.Sprintf("`tags` argument is not set but supported in %s%s `%s`", r.getNestedBlockSeq(parentBlockNames), parentBlockNames[0], parentBlockNames[1]),
-			block.DefRange(),
+			fmt.Sprintf("`tags` argument is not set but supported in resource `%s`", azBlock.Labels[0]),
+			azBlock.DefRange(),
 		)
 	}
-	for _, nestedBlock := range block.Body.Blocks {
-		blockName := nestedBlock.Type
-		if nestedBlock.Type == "dynamic" {
-			blockName = nestedBlock.Labels[0]
-		}
-		subErr := r.visitBlock(runner, nestedBlock, append(parentBlockNames, blockName))
-		if subErr != nil {
-			err = multierror.Append(err, subErr)
-		}
-	}
-	return err
+	return nil
 }

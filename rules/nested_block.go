@@ -6,7 +6,6 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
-	"github.com/hashicorp/terraform-provider-azurerm/provider"
 	"math"
 	"sort"
 	"strings"
@@ -148,7 +147,7 @@ func (b *NestedBlock) nestedBlocks() []*NestedBlock {
 }
 
 func (b *NestedBlock) buildAttributes(attributes hclsyntax.Attributes) {
-	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
+	argSchemas := getBlock(b.ParentBlockNames)
 	attrs := attributesByLines(attributes)
 	for _, attr := range attrs {
 		attrName := attr.Name
@@ -157,7 +156,11 @@ func (b *NestedBlock) buildAttributes(attributes hclsyntax.Attributes) {
 			b.addHeadMeta(arg)
 			continue
 		}
-		attrSchema, isAzAttr := argSchemas[attrName]
+		if argSchemas == nil {
+			b.addOptionalAttr(arg)
+			continue
+		}
+		attrSchema, isAzAttr := argSchemas.Attributes[attrName]
 		if isAzAttr && attrSchema.Required {
 			b.addRequiredAttr(arg)
 		} else {
@@ -199,8 +202,14 @@ func (b *NestedBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) {
 	}
 	nb.buildAttributes(nestedBlock.Body.Attributes)
 	nb.buildNestedBlocks(nestedBlock.Body.Blocks)
-	argSchemas := provider.GetArgSchema(b.ParentBlockNames)
-	if _, required := argSchemas[nb.Name]; required {
+	argSchemas := getBlock(b.ParentBlockNames)
+	if argSchemas.NestedBlocks == nil {
+		b.addOptionalNestedBlock(nb)
+		return
+	}
+
+	nbSchema, ok := argSchemas.NestedBlocks[nb.Name]
+	if ok && nbSchema.MinItems > 0 {
 		b.addRequiredNestedBlock(nb)
 	} else {
 		b.addOptionalNestedBlock(nb)
