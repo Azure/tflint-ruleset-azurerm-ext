@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
+	tfjson "github.com/hashicorp/terraform-json"
 	"sort"
 	"strings"
 )
@@ -74,7 +75,7 @@ func BuildResourceBlock(block *hclsyntax.Block, file *hcl.File,
 
 // CheckOrder checks whether the resourceBlock is sorted
 func (b *ResourceBlock) CheckOrder() bool {
-	return b.sectionsSorted() && b.gaped()
+	return b.sorted() && b.gaped()
 }
 
 // ToString prints the sorted resource block
@@ -85,7 +86,12 @@ func (b *ResourceBlock) ToString() string {
 	tailMetaArgTxt := toString(b.TailMetaArgs)
 	tailMetaNbTxt := toString(b.TailMetaNestedBlocks)
 	var txts []string
-	for _, subTxt := range []string{headMetaTxt, argTxt, nbTxt, tailMetaArgTxt, tailMetaNbTxt} {
+	for _, subTxt := range []string{
+		headMetaTxt,
+		argTxt,
+		nbTxt,
+		tailMetaArgTxt,
+		tailMetaNbTxt} {
 		if subTxt != "" {
 			txts = append(txts, subTxt)
 		}
@@ -102,18 +108,20 @@ func (b *ResourceBlock) ToString() string {
 
 func (b *ResourceBlock) nestedBlocks() []*NestedBlock {
 	var nbs []*NestedBlock
-	for _, subNbs := range []*NestedBlocks{b.RequiredNestedBlocks, b.OptionalNestedBlocks, b.TailMetaNestedBlocks} {
-		if subNbs != nil {
-			nbs = append(nbs, subNbs.Blocks...)
+	for _, nb := range []*NestedBlocks{
+		b.RequiredNestedBlocks,
+		b.OptionalNestedBlocks,
+		b.TailMetaNestedBlocks} {
+		if nb != nil {
+			nbs = append(nbs, nb.Blocks...)
 		}
 	}
 	return nbs
 }
 
 func (b *ResourceBlock) buildArgs(attributes hclsyntax.Attributes) {
-	argSchemas := getBlock(b.ParentBlockNames)
-	attrs := attributesByLines(attributes)
-	for _, attr := range attrs {
+	resourceBlock := queryBlockSchema(b.ParentBlockNames)
+	for _, attr := range attributesByLines(attributes) {
 		attrName := attr.Name
 		arg := buildAttrArg(attr, b.File)
 		if IsHeadMeta(attrName) {
@@ -124,11 +132,11 @@ func (b *ResourceBlock) buildArgs(attributes hclsyntax.Attributes) {
 			b.addTailMetaArg(arg)
 			continue
 		}
-		if argSchemas == nil {
+		if resourceBlock == nil {
 			b.addOptionalAttr(arg)
 			continue
 		}
-		attrSchema, isAzAttr := argSchemas.Attributes[attrName]
+		attrSchema, isAzAttr := resourceBlock.Attributes[attrName]
 		if isAzAttr && attrSchema.Required {
 			b.addRequiredAttr(arg)
 		} else {
@@ -174,18 +182,18 @@ func (b *ResourceBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) *NestedBl
 }
 
 func (b *ResourceBlock) buildNestedBlocks(nestedBlocks hclsyntax.Blocks) {
-	argSchemas := getBlock(b.ParentBlockNames)
+	blockSchema := queryBlockSchema(b.ParentBlockNames)
 	for _, nestedBlock := range nestedBlocks {
 		nb := b.buildNestedBlock(nestedBlock)
 		if IsTailMeta(nb.Name) {
 			b.addTailMetaNestedBlock(nb)
 			continue
 		}
-		if argSchemas == nil || argSchemas.NestedBlocks == nil {
+		if metaArgOrUnknownBlock(blockSchema) {
 			b.addOptionalNestedBlock(nb)
 			continue
 		}
-		blockSchema, isAzNestedBlock := argSchemas.NestedBlocks[nb.Name]
+		blockSchema, isAzNestedBlock := blockSchema.NestedBlocks[nb.Name]
 		if isAzNestedBlock && blockSchema.MinItems > 0 {
 			b.addRequiredNestedBlock(nb)
 		} else {
@@ -194,7 +202,11 @@ func (b *ResourceBlock) buildNestedBlocks(nestedBlocks hclsyntax.Blocks) {
 	}
 }
 
-func (b *ResourceBlock) sectionsSorted() bool {
+func metaArgOrUnknownBlock(blockSchema *tfjson.SchemaBlock) bool {
+	return blockSchema == nil || blockSchema.NestedBlocks == nil
+}
+
+func (b *ResourceBlock) sorted() bool {
 	sections := []Section{
 		b.HeadMetaArgs,
 		b.RequiredArgs,

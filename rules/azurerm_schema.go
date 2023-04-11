@@ -2,23 +2,24 @@ package rules
 
 import (
 	"fmt"
+
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lonegunmanb/terraform-azurerm-schema/v3/generated"
 )
 
-func getBlock(path []string) *tfjson.SchemaBlock {
+func queryBlockSchema(path []string) *tfjson.SchemaBlock {
 	if path[0] != "resource" && path[0] != "data" {
 		return nil
 	}
 	if len(path) < 2 {
 		panic(fmt.Sprintf("invalid path:%v", path))
 	}
-	collection := generated.Resources
+	root := generated.Resources
 	if path[0] == "data" {
-		collection = generated.DataSources
+		root = generated.DataSources
 	}
 
-	b, ok := collection[path[1]]
+	b, ok := root[path[1]]
 	if !ok {
 		return nil
 	}

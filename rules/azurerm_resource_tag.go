@@ -61,11 +61,11 @@ func (r *AzurermResourceTagRule) CheckFile(runner tflint.Runner, file *hcl.File)
 }
 
 func (r *AzurermResourceTagRule) visitAzResource(runner tflint.Runner, azBlock *hclsyntax.Block) error {
-	argSchemas := generated.Resources[azBlock.Labels[0]]
-	if argSchemas == nil {
+	resourceSchema, isAzureResource := generated.Resources[azBlock.Labels[0]]
+	if !isAzureResource {
 		return nil
 	}
-	_, isTagSupported := argSchemas.Block.Attributes["tags"]
+	_, isTagSupported := resourceSchema.Block.Attributes["tags"]
 	_, isTagSet := azBlock.Body.Attributes["tags"]
 	if isTagSupported && !isTagSet {
 		return runner.EmitIssue(

@@ -147,7 +147,7 @@ func (b *NestedBlock) nestedBlocks() []*NestedBlock {
 }
 
 func (b *NestedBlock) buildAttributes(attributes hclsyntax.Attributes) {
-	argSchemas := getBlock(b.ParentBlockNames)
+	argSchemas := queryBlockSchema(b.ParentBlockNames)
 	attrs := attributesByLines(attributes)
 	for _, attr := range attrs {
 		attrName := attr.Name
@@ -202,13 +202,13 @@ func (b *NestedBlock) buildNestedBlock(nestedBlock *hclsyntax.Block) {
 	}
 	nb.buildAttributes(nestedBlock.Body.Attributes)
 	nb.buildNestedBlocks(nestedBlock.Body.Blocks)
-	argSchemas := getBlock(b.ParentBlockNames)
-	if argSchemas.NestedBlocks == nil {
+	blockSchema := queryBlockSchema(b.ParentBlockNames)
+	if metaArgOrUnknownBlock(blockSchema) {
 		b.addOptionalNestedBlock(nb)
 		return
 	}
 
-	nbSchema, ok := argSchemas.NestedBlocks[nb.Name]
+	nbSchema, ok := blockSchema.NestedBlocks[nb.Name]
 	if ok && nbSchema.MinItems > 0 {
 		b.addRequiredNestedBlock(nb)
 	} else {
