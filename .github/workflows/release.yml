@@ -15,23 +15,23 @@ jobs:
       REPO_NAME: ${{ github.event.repository.name }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 #v3.6.0
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 #v5.0.0
       with:
-        go-version: 1.18
+        go-version: 1.21
     - name: Import GPG key
       id: import_gpg
-      uses: crazy-max/ghaction-import-gpg@v4
+      uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
       with:
         gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
         passphrase: ${{ secrets.GPG_PASSPHRASE }}
     - name: Prepare env
       run: make prepare
     - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v3
+      uses: goreleaser/goreleaser-action@b508e2e3ef3b19d4e4146d4f8fb3ba9db644a757 #v3.2.0
       with:
         version: v0.178.0
         args: release --rm-dist --timeout 120m
