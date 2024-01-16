@@ -22,11 +22,11 @@ jobs:
       - uses: terraform-linters/setup-tflint@v2
         name: Setup TFLint
         with:
-          tflint_version: v0.40.1
+          tflint_version: v0.50.1
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.21
       - name: Run install
         run: make install
       - name: Run e2e tests
