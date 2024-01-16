@@ -26,6 +26,4 @@ jobs:
           make prepare
           docker run --rm -v $(pwd):/src -w /src golangci/golangci-lint golangci-lint run --timeout 1h --skip-dirs integration --skip-dirs terraform-provider-azurerm -v ./...
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
-        with:
-          args: '-exclude-dir=terraform-provider-azurerm ./...'
+        uses: securego/gosec@v2.18.2
