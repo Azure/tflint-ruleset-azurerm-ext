@@ -17,13 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 #v5.0.0
         with:
           go-version: 1.21
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 #v3.6.0
       - name: golangci-lint
         run: |
           make prepare
           docker run --rm -v $(pwd):/src -w /src golangci/golangci-lint golangci-lint run --timeout 1h --skip-dirs integration --skip-dirs terraform-provider-azurerm -v ./...
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.18.2
+        uses: securego/gosec@55d79496019a560e16e73e1948dee20a1fad631a #v2.18.2
