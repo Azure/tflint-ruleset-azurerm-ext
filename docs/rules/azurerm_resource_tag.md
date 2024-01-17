@@ -31,7 +31,7 @@ Notice: `tags` argument is not set but supported in resource `azurerm_container_
   on main.tf line 1:
    1: resource "azurerm_container_group" "example" {
 
-Reference: https://github.com/terraform-linters/tflint-ruleset-azurerm-ext/blob/v0.0.1/docs/rules/azurerm_resource_tag.md
+Reference: https://github.com/Azure/tflint-ruleset-azurerm-ext/blob/v0.0.1/docs/rules/azurerm_resource_tag.md
 ```
 
 ## Why

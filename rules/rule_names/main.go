@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/terraform-linters/tflint-ruleset-azurerm-ext/rules"
+	"github.com/Azure/tflint-ruleset-azurerm-ext/rules"
 	"sort"
 )
 

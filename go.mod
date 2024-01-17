@@ -1,4 +1,4 @@
-module github.com/terraform-linters/tflint-ruleset-azurerm-ext
+module github.com/Azure/tflint-ruleset-azurerm-ext
 
 go 1.18
 
