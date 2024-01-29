@@ -8,8 +8,8 @@ require (
 	github.com/google/go-github/v47 v47.1.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/hcl/v2 v2.19.1
-	github.com/hashicorp/terraform-json v0.20.0
-	github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.88.0
+	github.com/hashicorp/terraform-json v0.21.0
+	github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.89.0
 	github.com/stretchr/testify v1.8.4
 	github.com/terraform-linters/tflint-plugin-sdk v0.18.0
 	golang.org/x/mod v0.14.0
