@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"github.com/terraform-linters/tflint-plugin-sdk/logger"
 
 	"github.com/Azure/tflint-ruleset-azurerm-ext/project"
 	"github.com/hashicorp/go-multierror"
@@ -45,7 +46,12 @@ func NewAzurermResourceTagRule() *AzurermResourceTagRule {
 
 // CheckFile checks whether the tags arg is specified if supported
 func (r *AzurermResourceTagRule) CheckFile(runner tflint.Runner, file *hcl.File) error {
-	blocks := file.Body.(*hclsyntax.Body).Blocks
+	body, ok := file.Body.(*hclsyntax.Body)
+	if !ok {
+		logger.Debug("skip azurerm_resource_tag since it's not hcl file")
+		return nil
+	}
+	blocks := body.Blocks
 	var err error
 	for _, block := range blocks {
 		var subErr error

@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"github.com/terraform-linters/tflint-plugin-sdk/logger"
 
 	"github.com/Azure/tflint-ruleset-azurerm-ext/project"
 	"github.com/ahmetb/go-linq/v3"
@@ -47,7 +48,12 @@ func (r *AzurermArgOrderRule) Name() string {
 
 // CheckFile checks whether the arguments in a block are sorted in codex order
 func (r *AzurermArgOrderRule) CheckFile(runner tflint.Runner, file *hcl.File) error {
-	blocks := file.Body.(*hclsyntax.Body).Blocks
+	body, ok := file.Body.(*hclsyntax.Body)
+	if !ok {
+		logger.Debug("skip azurerm_arg_order since it's not hcl file")
+		return nil
+	}
+	blocks := body.Blocks
 	var err error
 	for _, block := range blocks {
 		var subErr error
