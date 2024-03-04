@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.19.1
 	github.com/hashicorp/terraform-json v0.21.0
 	github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.89.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/terraform-linters/tflint-plugin-sdk v0.18.0
 	golang.org/x/mod v0.14.0
 	golang.org/x/oauth2 v0.16.0
