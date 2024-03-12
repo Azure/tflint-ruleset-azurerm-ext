@@ -1,7 +1,7 @@
 default: build
 
 test:
-	go test ./..
+	go mod download && go test ./...
 
 e2e: install
 	cd integration/basic && tflint --chdir=.
