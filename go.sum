@@ -68,6 +68,8 @@ github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.99.0 h1:Tl9plw0fIHtRkF3Wdu
 github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.99.0/go.mod h1:rHt0ZljoAE24XoInFRZXeCeu4EMuYTaRNfW4HgMKbzk=
 github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.108.0 h1:pV+gIi/fOMIaRObIZ88FILvbsnR40b34Ulu6sr/+Hgc=
 github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.108.0/go.mod h1:tGszGFnFagfQKDD0ewNTaDCyYtxWTqqS9sbuX5Pmll0=
+github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.110.0 h1:2fAqwGTxzyl3xTZKeGQsuR3/2NWxrvAe7nSwDGWcWzM=
+github.com/lonegunmanb/terraform-azurerm-schema/v3 v3.110.0/go.mod h1:tGszGFnFagfQKDD0ewNTaDCyYtxWTqqS9sbuX5Pmll0=
 github.com/mattn/go-colorable v0.1.9/go.mod h1:u6P/XSegPjTcexA+o6vUJrdnUu04hMope9wVRipJSqc=
 github.com/mattn/go-colorable v0.1.12 h1:jF+Du6AlPIjs2BiUiQlKOX0rt3SujHxPnksPKZbaA40=
 github.com/mattn/go-colorable v0.1.12/go.mod h1:u5H1YNBxpqRaxsYJYSkiCWKzEfiAb1Gb520KVy5xxl4=
