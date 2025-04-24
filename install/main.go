@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	var cmds map[string]func() = map[string]func(){
+	var cmds = map[string]func(){
 		"install": install,
 		"clean":   clean,
 		"prepare": prepare,
