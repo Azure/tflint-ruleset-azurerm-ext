@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	tfjson "github.com/hashicorp/terraform-json"
-	"github.com/lonegunmanb/terraform-azurerm-schema/v3/generated"
+	"github.com/lonegunmanb/terraform-azurerm-schema/v4/generated"
 )
 
 func queryBlockSchema(path []string) *tfjson.SchemaBlock {

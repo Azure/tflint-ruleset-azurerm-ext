@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/lonegunmanb/terraform-azurerm-schema/v3/generated"
+	"github.com/lonegunmanb/terraform-azurerm-schema/v4/generated"
 	"github.com/terraform-linters/tflint-plugin-sdk/tflint"
 )
 
