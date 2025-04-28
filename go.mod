@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/hcl/v2 v2.23.0
 	github.com/hashicorp/terraform-json v0.24.0
-	github.com/lonegunmanb/terraform-azurerm-schema/v4 v4.26.0
+	github.com/lonegunmanb/terraform-azurerm-schema/v4 v4.27.0
 	github.com/terraform-linters/tflint-plugin-sdk v0.22.0
 )
 
